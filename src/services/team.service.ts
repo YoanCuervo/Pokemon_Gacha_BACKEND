@@ -40,13 +40,10 @@ export class TeamError extends Error {
 	}
 }
 
-/**
- * Duplique dans game_settings.team_size — LA CONSTANTE FAIT FOI.
- *
+/* Duplique dans game_settings.team_size — LA CONSTANTE FAIT FOI.
  * On assume la duplication : lire la base a chaque validation pour une
  * valeur qui ne change jamais en cours de partie serait de la
- * sur-ingenierie. Si un jour l'equipe passe a 5, changer ici ET en base.
- */
+ * sur-ingenierie. Si un jour l'equipe passe a 5, changer ici ET en base.*/
 const TEAM_SIZE = 6;
 
 /**
@@ -92,15 +89,9 @@ function computeStats(
 	};
 }
 
-/**
- * Regroupe les lignes plates de la requete en objets par pokemon.
- *
- * La requete renvoie jusqu'a 24 lignes (6 pokemon x 4 items). Chaque
- * pokemon est duplique une fois par item. Ici on les recolle.
- *
- * Le Map est cle par slot_position : c'est l'identifiant naturel d'un
- * membre d'equipe, et il est unique par la contrainte uq_ts_slot.
- */
+/*Regroupe les lignes plates de la requete en objets par pokemon.
+ * La requete renvoie jusqu'a 24 lignes (6 pokemon x 4 items). Chaque pokemon est duplique une fois par item. Ici on les recolle.
+ * Le Map est cle par slot_position : c'est l'identifiant naturel d'un membre d'equipe, et il est unique par la contrainte uq_ts_slot.*/
 function groupRows(
 	rows: TeamSlotRow[],
 	starCoeff: number,
@@ -157,13 +148,8 @@ function groupRows(
 	return members;
 }
 
-/**
- * READ — l'equipe complete, prete a afficher.
- *
- * Deux requetes : les reglages, puis l'equipe. Les coefficients sont
- * lus a chaque appel pour que reequilibrer avec un UPDATE en base
- * prenne effet sans redemarrer le serveur.
- */
+/*READ — l'equipe complete, prete a afficher.
+ * Deux requetes : les reglages, puis l'equipe. Les coefficients sont lus a chaque appel pour que reequilibrer avec un UPDATE en base prenne effet sans redemarrer le serveur.*/
 export async function getTeam(userId: number): Promise<TeamResponse> {
 	const [settings, rows] = await Promise.all([
 		findAllSettings(),
@@ -182,9 +168,7 @@ export async function getTeam(userId: number): Promise<TeamResponse> {
 	return { members, total_speed: totalSpeed };
 }
 
-/**
- * CREATE — place un pokemon dans un slot.
- */
+/*CREATE — place un pokemon dans un slot.*/
 export async function addToTeam(
 	userId: number,
 	pokemonInstanceId: number,
