@@ -38,10 +38,11 @@ function getUserId(_req: Request): number {
 function handleError(err: unknown, res: Response): void {
 	if (err instanceof TeamError) {
 		const status = {
-			NOT_OWNED: 403, // Forbidden : l'objet existe, mais pas pour toi
+			NOT_OWNED: 403,
 			NOT_FOUND: 404,
-			DUPLICATE: 409, // Conflict : l'etat actuel interdit l'operation
+			DUPLICATE: 409,
 			TEAM_FULL: 409,
+			VALIDATION: 400,
 		}[err.code];
 
 		res.status(status).json({ error: err.message });

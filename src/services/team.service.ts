@@ -28,13 +28,25 @@ import type {
 export class TeamError extends Error {
 	constructor(
 		message: string,
-		public readonly code: "NOT_OWNED" | "TEAM_FULL" | "DUPLICATE" | "NOT_FOUND",
+		public readonly code:
+			| "NOT_OWNED"
+			| "TEAM_FULL"
+			| "DUPLICATE"
+			| "NOT_FOUND"
+			| "VALIDATION",
 	) {
 		super(message);
 		this.name = "TeamError";
 	}
 }
 
+/**
+ * Duplique dans game_settings.team_size — LA CONSTANTE FAIT FOI.
+ *
+ * On assume la duplication : lire la base a chaque validation pour une
+ * valeur qui ne change jamais en cours de partie serait de la
+ * sur-ingenierie. Si un jour l'equipe passe a 5, changer ici ET en base.
+ */
 const TEAM_SIZE = 6;
 
 /**
@@ -181,7 +193,7 @@ export async function addToTeam(
 	if (slotPosition < 1 || slotPosition > TEAM_SIZE) {
 		throw new TeamError(
 			`Le slot doit etre entre 1 et ${TEAM_SIZE}`,
-			"NOT_FOUND",
+			"VALIDATION",
 		);
 	}
 
