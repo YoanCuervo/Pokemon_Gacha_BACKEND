@@ -80,11 +80,8 @@ export interface TeamSlot {
 // ce sont des vues assemblees a partir de plusieurs.
 // ---------------------------------------------------------------
 
-/**
- * Une ligne brute de la requete a 4 jointures.
- * Rappel : la requete renvoie jusqu'a 24 lignes (6 pokemon x 4 items),
- * pas 6. Le service les regroupe en TeamMember[].
- */
+/* Une ligne brute de la requete a 4 jointures.
+Rappel : la requete renvoie jusqu'a 24 lignes (6 pokemon x 4 items), pas 6. Le service les regroupe en TeamMember[].*/
 export interface TeamSlotRow {
 	slot_position: number;
 	instance_id: number;
