@@ -2,6 +2,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
 import { testConnection } from "./config/db";
+import boxRouter from "./routes/box.routes";
 import teamRoutes from "./routes/team.routes";
 
 dotenv.config();
@@ -41,6 +42,7 @@ app.get("/health", (_req, res) => {
 });
 
 app.use("/api/team", teamRoutes);
+app.use("/api/box", boxRouter);
 
 // 404 sur tout le reste. Doit etre APRES les routes.
 app.use((_req, res) => {
