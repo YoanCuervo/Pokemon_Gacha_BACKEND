@@ -1,4 +1,4 @@
-import type { RowDataPacket } from "mysql2";
+import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import { pool } from "../config/db";
 
 export type UserRow = {
@@ -18,4 +18,15 @@ export async function findUserById(userId: number): Promise<UserRow | null> {
 		[userId],
 	);
 	return rows[0] ?? null;
+}
+
+export async function updateCountry(
+	userId: number,
+	country: string,
+): Promise<number> {
+	const [result] = await pool.query<ResultSetHeader>(
+		`UPDATE users SET country = ? WHERE id = ?`,
+		[country, userId],
+	);
+	return result.affectedRows;
 }
