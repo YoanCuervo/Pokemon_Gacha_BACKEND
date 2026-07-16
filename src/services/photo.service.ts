@@ -1,8 +1,8 @@
 import fs from "node:fs/promises";
-import * as photoModel from "../models/photo.model";
 import type { PhotoRow } from "../models/photo.model";
+import * as photoModel from "../models/photo.model";
 
-const PHOTO_SLOTS = 4; // constante = source de verite (cf. TEAM_SIZE)
+const PHOTO_SLOTS = 4;
 
 export type PhotoErrorCode =
 	| "NOT_OWNED"
