@@ -37,7 +37,7 @@ app.use(express.json());
  * inaccessibles depuis le front. Le chemin URL /uploads/... mappe le
  * dossier disque uploads/.
  */
-app.use("/uploads", express.static("uploads"));
+app.use("/api/uploads", express.static("uploads"));
 
 // ---------------------------------------------------------------
 // ROUTES
