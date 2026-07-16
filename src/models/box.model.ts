@@ -16,7 +16,7 @@ export async function findBoxInstancesByUserId(
 			p.type_primary,
 			p.type_secondary,
 			pi.level,
-			pi.star_progress AS stars,
+			pi.stars,
 			pi.is_shiny
 		FROM pokemon_instances pi
 		JOIN pokemon p ON p.id = pi.pokemon_id

@@ -116,6 +116,7 @@ export interface EquippedItem {
 export interface TeamMember {
 	slot_position: number;
 	instance_id: number;
+	pokemon_id: number;
 	name: string;
 	type_primary: string;
 	type_secondary: string | null;

@@ -134,6 +134,7 @@ function groupRows(
 		members.push({
 			slot_position: slot,
 			instance_id: first.instance_id,
+			pokemon_id: first.pokemon_id,
 			name: first.name,
 			type_primary: first.type_primary,
 			type_secondary: first.type_secondary,
