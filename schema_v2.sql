@@ -1,23 +1,14 @@
--- =====================================================================
--- POKEMON WEB GAME - SCHEMA v2
--- Perimetre : joueurs, profil, pokemon, equipe, items, fragments, evolution
+-- POKEMON WEB GAME - SCHEMA v3
+-- Perimetre : joueurs, profil, photos, pokemon, equipe, items,
+--             fragments, evolution
 -- Hors perimetre : gacha/packs, monnaies, PvP, competences, badges,
---                  mode histoire, table des types (efficacite)
--- =====================================================================
+--                  mode histoire, table des types (efficacite),
+--                  cadres d'avatar
 
 -- ---------------------------------------------------------------------
--- 1. AVATARS : catalogue des avatars deblocables
---    Donnees statiques.
--- ---------------------------------------------------------------------
-CREATE TABLE avatars (
-  id       INT AUTO_INCREMENT PRIMARY KEY,
-  name     VARCHAR(50) NOT NULL,
-  image_url VARCHAR(255) NOT NULL
-) ENGINE=InnoDB;
-
--- ---------------------------------------------------------------------
--- 2. USERS : les joueurs
---    active_avatar_id : l'avatar affiche. NULL = avatar par defaut.
+-- 1. USERS : les joueurs
+--    active_avatar_id : la photo affichee. NULL = avatar par defaut.
+--                       FK ajoutee APRES user_photos (dependance croisee).
 --    country : code ISO 3166-1 alpha-2 (FR, JP, US...). Le front
 --              affiche le drapeau correspondant. Pas de table : les
 --              codes pays sont universels et immuables.
@@ -31,27 +22,33 @@ CREATE TABLE users (
   level            SMALLINT UNSIGNED NOT NULL DEFAULT 1,
   xp               INT UNSIGNED NOT NULL DEFAULT 0,
   active_avatar_id INT NULL,
-  created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_us_avatar FOREIGN KEY (active_avatar_id) REFERENCES avatars(id) ON DELETE SET NULL
+  created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
 -- ---------------------------------------------------------------------
--- 3. USER_AVATARS : quels avatars un joueur a debloque
---    Pas de limite en base. Le "4 max" du wireframe est un choix
---    d'affichage du front.
+-- 2. USER_PHOTOS : les photos de profil uploadees, 4 slots max
+--    Meme modele que team_slots : slot_position + UNIQUE = la limite
+--    est garantie par MySQL, pas par du code.
+--    Slot vide = pas de ligne. file_path = chemin disque du fichier.
 -- ---------------------------------------------------------------------
-CREATE TABLE user_avatars (
-  id          INT AUTO_INCREMENT PRIMARY KEY,
-  user_id     INT NOT NULL,
-  avatar_id   INT NOT NULL,
-  unlocked_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_ua_user   FOREIGN KEY (user_id)   REFERENCES users(id)   ON DELETE CASCADE,
-  CONSTRAINT fk_ua_avatar FOREIGN KEY (avatar_id) REFERENCES avatars(id) ON DELETE CASCADE,
-  UNIQUE KEY uq_ua (user_id, avatar_id)
+CREATE TABLE user_photos (
+  id            INT AUTO_INCREMENT PRIMARY KEY,
+  user_id       INT NOT NULL,
+  slot_position TINYINT UNSIGNED NOT NULL,
+  file_path     VARCHAR(255) NOT NULL,
+  uploaded_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_up_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT chk_up_pos CHECK (slot_position BETWEEN 1 AND 4),
+  UNIQUE KEY uq_up_slot (user_id, slot_position)
 ) ENGINE=InnoDB;
 
+-- La photo active pointe vers user_photos. ON DELETE SET NULL : le
+-- joueur supprime sa photo active -> retour a l'avatar par defaut.
+ALTER TABLE users ADD CONSTRAINT fk_us_photo
+  FOREIGN KEY (active_avatar_id) REFERENCES user_photos(id) ON DELETE SET NULL;
+
 -- ---------------------------------------------------------------------
--- 4. STONES : catalogue des pierres d'evolution (une par type Pokemon)
+-- 3. STONES : catalogue des pierres d'evolution (une par type Pokemon)
 --    17 lignes (types Gen 1-2).
 -- ---------------------------------------------------------------------
 CREATE TABLE stones (
@@ -61,7 +58,7 @@ CREATE TABLE stones (
 ) ENGINE=InnoDB;
 
 -- ---------------------------------------------------------------------
--- 5. POKEMON : catalogue des especes (Gen 1-2, ~251 lignes)
+-- 4. POKEMON : catalogue des especes (Gen 1-2, ~251 lignes)
 --    Donnees statiques, jamais modifiees par un joueur.
 -- ---------------------------------------------------------------------
 CREATE TABLE pokemon (
@@ -86,7 +83,7 @@ CREATE TABLE pokemon (
 ) ENGINE=InnoDB;
 
 -- ---------------------------------------------------------------------
--- 6. POKEMON_INSTANCES : les pokemon reellement possedes
+-- 5. POKEMON_INSTANCES : les pokemon reellement possedes
 --    Pas de stats calculees stockees : elles sont recalculees a la
 --    volee par le service (voir R7). Stocker une stat calculee, c'est
 --    devoir la recalculer a chaque equipement / etoile / niveau /
@@ -109,7 +106,7 @@ CREATE TABLE pokemon_instances (
 ) ENGINE=InnoDB;
 
 -- ---------------------------------------------------------------------
--- 7. TEAM_SLOTS : l'equipe unique de 6 pokemon
+-- 6. TEAM_SLOTS : l'equipe unique de 6 pokemon
 --    slot_position 1-6 = ordre d'attaque (gauche vers droite)
 -- ---------------------------------------------------------------------
 CREATE TABLE team_slots (
@@ -125,7 +122,7 @@ CREATE TABLE team_slots (
 ) ENGINE=InnoDB;
 
 -- ---------------------------------------------------------------------
--- 8. ITEM_TEMPLATES : catalogue des items
+-- 7. ITEM_TEMPLATES : catalogue des items
 --    category = le slot type (att/def/speed/spe)
 --    mode     = le comportement (NULL pour att et speed)
 --    rarity   = determine boost_value
@@ -143,7 +140,7 @@ CREATE TABLE item_templates (
 ) ENGINE=InnoDB;
 
 -- ---------------------------------------------------------------------
--- 9. ITEM_INSTANCES : les items possedes
+-- 8. ITEM_INSTANCES : les items possedes
 --    pokemon_instance_id NULL = item en reserve (non equipe)
 --    NULL != NULL en MySQL : la contrainte UNIQUE ne s'applique donc
 --    pas aux items en reserve. Un joueur peut en avoir 500 de la meme
@@ -166,7 +163,7 @@ CREATE TABLE item_instances (
 ) ENGINE=InnoDB;
 
 -- ---------------------------------------------------------------------
--- 10. USER_FRAGMENTS : le pot de fragments, PAR LIGNE EVOLUTIVE
+-- 9. USER_FRAGMENTS : le pot de fragments, PAR LIGNE EVOLUTIVE
 --     Salameche / Reptincel / Dracaufeu partagent le meme pot.
 -- ---------------------------------------------------------------------
 CREATE TABLE user_fragments (
@@ -179,7 +176,7 @@ CREATE TABLE user_fragments (
 ) ENGINE=InnoDB;
 
 -- ---------------------------------------------------------------------
--- 11. USER_STONES : les pierres possedees
+-- 10. USER_STONES : les pierres possedees
 -- ---------------------------------------------------------------------
 CREATE TABLE user_stones (
   id       INT AUTO_INCREMENT PRIMARY KEY,
@@ -197,7 +194,7 @@ CREATE TABLE user_stones (
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
--- 12. STAR_COSTS : bareme du cout des etoiles
+-- 11. STAR_COSTS : bareme du cout des etoiles
 -- ---------------------------------------------------------------------
 CREATE TABLE star_costs (
   star_level    TINYINT UNSIGNED PRIMARY KEY,
@@ -209,7 +206,7 @@ INSERT INTO star_costs (star_level, fragment_cost) VALUES
   (1, 25), (2, 50), (3, 100), (4, 250), (5, 500);
 
 -- ---------------------------------------------------------------------
--- 13. LEVEL_COSTS : bareme XP des pokemon
+-- 12. LEVEL_COSTS : bareme XP des pokemon
 --     xp_required = xp cumule pour ATTEINDRE ce niveau.
 --     Courbe volontairement exponentielle sur le COUT.
 --     Les stats, elles, montent lineairement (voir R7).
@@ -226,7 +223,7 @@ INSERT INTO level_costs (level, xp_required) VALUES
 -- ... a completer jusqu'au niveau max souhaite.
 
 -- ---------------------------------------------------------------------
--- 14. GAME_SETTINGS : constantes d'equilibrage (cle / valeur)
+-- 13. GAME_SETTINGS : constantes d'equilibrage (cle / valeur)
 --     Evite de semer des nombres magiques dans le code.
 --     value en DECIMAL pour accepter les coefficients (0.10, 0.02).
 -- ---------------------------------------------------------------------
@@ -242,7 +239,8 @@ INSERT INTO game_settings (setting_key, setting_value, description) VALUES
   ('level_stat_coeff',    0.0200, 'Gain de stat par niveau. Formule : 1 + coeff * (level - 1)'),
   ('team_size',           6,      'Nombre de slots dans une equipe.'),
   ('equip_slots',         4,      'Nombre de slots d''equipement par pokemon.'),
-  ('max_stars',           5,      'Niveau d''etoile maximum.');
+  ('max_stars',           5,      'Niveau d''etoile maximum.'),
+  ('photo_slots',         4,      'Nombre de slots de photo de profil par joueur.');
 
 -- =====================================================================
 -- REGLES DE GESTION NON EXPRIMABLES EN SQL
@@ -310,7 +308,16 @@ INSERT INTO game_settings (setting_key, setting_value, description) VALUES
 --     Les coefficients vivent dans game_settings : on reequilibre
 --     sans toucher au code.
 --
--- R8. AVATARS
---     users.active_avatar_id doit exister dans user_avatars pour ce
---     joueur. Non contraignable en SQL (contrainte inter-tables) :
---     a verifier dans le service avant chaque UPDATE.
+-- R8. PHOTO ACTIVE
+--     users.active_avatar_id doit appartenir au joueur : verifier que
+--     la ligne user_photos visee a bien le bon user_id avant l'UPDATE.
+--     Non contraignable en SQL (contrainte inter-tables).
+--     Le joueur choisit lui-meme sa photo active (bouton "Utiliser").
+--
+-- R9. PHOTOS DE PROFIL
+--     4 slots max, garantis par uq_up_slot + chk_up_pos.
+--     Upload : le service prend le plus petit slot libre parmi 1-4.
+--              Aucun libre -> erreur SLOTS_FULL (409).
+--     Suppression : DELETE la ligne ET unlink du fichier disque.
+--     Le joueur peut uploader/supprimer autant qu'il veut dans le
+--     temps : seules 4 photos coexistent.
