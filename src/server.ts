@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import express from "express";
 import { testConnection } from "./config/db";
 import boxRouter from "./routes/box.routes";
+import photoRouter from "./routes/photo.routes";
 import teamRoutes from "./routes/team.routes";
 
 dotenv.config();
@@ -31,6 +32,13 @@ app.use(cors({ origin: true }));
 /** Parse les body JSON. Sans lui, req.body est undefined. */
 app.use(express.json());
 
+/**
+ * Sert les fichiers uploades. Sans ca, les photos sont stockees mais
+ * inaccessibles depuis le front. Le chemin URL /uploads/... mappe le
+ * dossier disque uploads/.
+ */
+app.use("/uploads", express.static("uploads"));
+
 // ---------------------------------------------------------------
 // ROUTES
 // Le prefixe est monte ici, pas dans le routeur. Le routeur ne sait
@@ -43,6 +51,7 @@ app.get("/health", (_req, res) => {
 
 app.use("/api/team", teamRoutes);
 app.use("/api/box", boxRouter);
+app.use("/api/photos", photoRouter);
 
 // 404 sur tout le reste. Doit etre APRES les routes.
 app.use((_req, res) => {
