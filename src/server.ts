@@ -5,6 +5,7 @@ import { testConnection } from "./config/db";
 import boxRouter from "./routes/box.routes";
 import photoRouter from "./routes/photo.routes";
 import teamRoutes from "./routes/team.routes";
+import userRouter from "./routes/user.routes";
 
 dotenv.config();
 
@@ -52,6 +53,7 @@ app.get("/health", (_req, res) => {
 app.use("/api/team", teamRoutes);
 app.use("/api/box", boxRouter);
 app.use("/api/photos", photoRouter);
+app.use("/api/me", userRouter);
 
 // 404 sur tout le reste. Doit etre APRES les routes.
 app.use((_req, res) => {
