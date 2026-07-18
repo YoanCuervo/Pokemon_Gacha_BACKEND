@@ -10,7 +10,8 @@ USE pokemon_gacha;
 --                  table des types (efficacite), cadres d'avatar
 --
 -- v3.1 (session combat du 18/07) — 4 changements vs v3 :
---   1. pokemon.base_spe AJOUTEE (ATTAQUE = ATT + SPE l'exige)
+--   1. pokemon.base_spe et base_spd AJOUTEES (fusion complete API :
+--      ATTAQUE = ATT + Sp.Atk / VIE = HP + DEF + Sp.Def)
 --   2. item_templates.mode : 'hp' retire, 'atk_adjacent' ajoute
 --   3. game_settings : crit_chance_step, crit_multiplier, max_actions
 --   4. R5/R6/R7 mis a jour (refonte items + renvoi COMBAT_SPEC.md)
@@ -71,8 +72,10 @@ CREATE TABLE stones (
 -- ---------------------------------------------------------------------
 -- 4. POKEMON : catalogue des especes (Gen 1-2, ~251 lignes)
 --    Donnees statiques, jamais modifiees par un joueur.
---    base_spe (v3.1) : stat speciale, composante de l'ATTAQUE de combat
---    (ATTAQUE = ATT + SPE, voir COMBAT_SPEC 3.3).
+--    base_spe (v3.1) : Sp.Atk API, composante de l'ATTAQUE de combat.
+--    base_spd (v3.1) : Sp.Def API, composante de la VIE de combat.
+--    ATTAQUE = ATT + SPE / VIE = HP + DEF + SPD (COMBAT_SPEC 3.3).
+--    Rien de l'API n'est jete : tout finit dans l'un des deux chiffres.
 -- ---------------------------------------------------------------------
 CREATE TABLE pokemon (
   id                INT AUTO_INCREMENT PRIMARY KEY,
@@ -88,6 +91,7 @@ CREATE TABLE pokemon (
   base_spe          SMALLINT UNSIGNED NOT NULL,
   base_hp           SMALLINT UNSIGNED NOT NULL,
   base_def          SMALLINT UNSIGNED NOT NULL,
+  base_spd          SMALLINT UNSIGNED NOT NULL,
   base_speed        SMALLINT UNSIGNED NOT NULL,
   generation        TINYINT UNSIGNED NOT NULL,
   CONSTRAINT fk_pk_evolves FOREIGN KEY (evolves_into_id) REFERENCES pokemon(id),
@@ -308,7 +312,7 @@ INSERT INTO game_settings (setting_key, setting_value, description) VALUES
 --     Resume : 6v6, initiative = somme des SPEED (egalite : coinflip),
 --     alternance stricte A1,B1,A2,B2 (curseurs sur les vivants),
 --     echange type Battlegrounds : riposte nue simultanee de la cible,
---     ciblage random (taunt prioritaire), VIE = HP+DEF,
+--     ciblage random (taunt prioritaire), VIE = HP+DEF+SPD,
 --     ATTAQUE = ATT+SPE, pas de mitigation, mort immediate (marquee,
 --     jamais supprimee), adjacence calculee sur les vivants,
 --     heal = ATTAQUE convertie (cap maxVie, fallback attaque),
@@ -324,7 +328,7 @@ INSERT INTO game_settings (setting_key, setting_value, description) VALUES
 --            * (1 + level_stat_coeff * (level - 1))
 --            + SOMME(boosts des items equipes)
 --
---     Applique a att, spe, hp, def, speed.       (v3.1 : + spe)
+--     Applique a att, spe, hp, def, spd, speed.  (v3.1 : + spe, spd)
 --     Exemple : Dracaufeu base_atk 84
 --       - etoile 1, niveau 1  -> 84
 --       - etoile 3, niveau 20 -> 84 * 1.20 * 1.38 = 139
