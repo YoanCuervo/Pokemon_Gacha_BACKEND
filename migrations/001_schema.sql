@@ -1,9 +1,20 @@
--- POKEMON WEB GAME - SCHEMA v3
+CREATE DATABASE IF NOT EXISTS pokemon_gacha CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE pokemon_gacha;
+
+-- =====================================================================
+-- POKEMON WEB GAME - 001_schema.sql (SCHEMA v3.1, 18/07/2026)
 -- Perimetre : joueurs, profil, photos, pokemon, equipe, items,
---             fragments, evolution
--- Hors perimetre : gacha/packs, monnaies, PvP, competences, badges,
---                  mode histoire, table des types (efficacite),
---                  cadres d'avatar
+--             fragments, evolution, equilibrage combat
+-- Hors perimetre : gacha/packs, monnaies, PvP (rank/winrate),
+--                  competences, badges, mode histoire,
+--                  table des types (efficacite), cadres d'avatar
+--
+-- v3.1 (session combat du 18/07) — 4 changements vs v3 :
+--   1. pokemon.base_spe AJOUTEE (ATTAQUE = ATT + SPE l'exige)
+--   2. item_templates.mode : 'hp' retire, 'atk_adjacent' ajoute
+--   3. game_settings : crit_chance_step, crit_multiplier, max_actions
+--   4. R5/R6/R7 mis a jour (refonte items + renvoi COMBAT_SPEC.md)
+-- =====================================================================
 
 -- ---------------------------------------------------------------------
 -- 1. USERS : les joueurs
@@ -60,6 +71,8 @@ CREATE TABLE stones (
 -- ---------------------------------------------------------------------
 -- 4. POKEMON : catalogue des especes (Gen 1-2, ~251 lignes)
 --    Donnees statiques, jamais modifiees par un joueur.
+--    base_spe (v3.1) : stat speciale, composante de l'ATTAQUE de combat
+--    (ATTAQUE = ATT + SPE, voir COMBAT_SPEC 3.3).
 -- ---------------------------------------------------------------------
 CREATE TABLE pokemon (
   id                INT AUTO_INCREMENT PRIMARY KEY,
@@ -72,6 +85,7 @@ CREATE TABLE pokemon (
   type_primary      VARCHAR(20) NOT NULL,
   type_secondary    VARCHAR(20) NULL,
   base_atk          SMALLINT UNSIGNED NOT NULL,
+  base_spe          SMALLINT UNSIGNED NOT NULL,
   base_hp           SMALLINT UNSIGNED NOT NULL,
   base_def          SMALLINT UNSIGNED NOT NULL,
   base_speed        SMALLINT UNSIGNED NOT NULL,
@@ -107,7 +121,7 @@ CREATE TABLE pokemon_instances (
 
 -- ---------------------------------------------------------------------
 -- 6. TEAM_SLOTS : l'equipe unique de 6 pokemon
---    slot_position 1-6 = ordre d'attaque (gauche vers droite)
+--    slot_position 1-6 = ordre d'action (gauche vers droite)
 -- ---------------------------------------------------------------------
 CREATE TABLE team_slots (
   id                  INT AUTO_INCREMENT PRIMARY KEY,
@@ -124,16 +138,21 @@ CREATE TABLE team_slots (
 -- ---------------------------------------------------------------------
 -- 7. ITEM_TEMPLATES : catalogue des items
 --    category = le slot type (att/def/speed/spe)
---    mode     = le comportement (NULL pour att et speed)
---    rarity   = determine boost_value
+--    REGLE (refonte 18/07, v3.1) :
+--      att / def / speed : boost pur -> mode = NULL, TOUJOURS.
+--      spe : boost + mode OBLIGATOIRE (le comportement = le role).
+--      "mode NOT NULL <=> category = 'spe'" : verif cote service.
+--    rarity determine boost_value ET, pour crit/anticrit, la
+--    puissance du comportement (COMBAT_SPEC 6.3).
 -- ---------------------------------------------------------------------
 CREATE TABLE item_templates (
   id          INT AUTO_INCREMENT PRIMARY KEY,
   name        VARCHAR(100) NOT NULL,
   category    ENUM('att','def','speed','spe') NOT NULL,
-  mode        ENUM('hp','taunt','crit','anticrit',
+  mode        ENUM('taunt','crit','anticrit',
                    'heal_left','heal_right','heal_random',
-                   'heal_lowest','heal_adjacent') NULL,
+                   'heal_lowest','heal_adjacent',
+                   'atk_adjacent') NULL,
   rarity      ENUM('common','rare','ultra_rare','legendary','mythic') NOT NULL,
   boost_value SMALLINT UNSIGNED NOT NULL,
   INDEX idx_it_cat_rarity (category, rarity)
@@ -226,6 +245,7 @@ INSERT INTO level_costs (level, xp_required) VALUES
 -- 13. GAME_SETTINGS : constantes d'equilibrage (cle / valeur)
 --     Evite de semer des nombres magiques dans le code.
 --     value en DECIMAL pour accepter les coefficients (0.10, 0.02).
+--     v3.1 : + cles du moteur de combat (COMBAT_SPEC 12).
 -- ---------------------------------------------------------------------
 CREATE TABLE game_settings (
   setting_key   VARCHAR(50) PRIMARY KEY,
@@ -240,7 +260,10 @@ INSERT INTO game_settings (setting_key, setting_value, description) VALUES
   ('team_size',           6,      'Nombre de slots dans une equipe.'),
   ('equip_slots',         4,      'Nombre de slots d''equipement par pokemon.'),
   ('max_stars',           5,      'Niveau d''etoile maximum.'),
-  ('photo_slots',         4,      'Nombre de slots de photo de profil par joueur.');
+  ('photo_slots',         4,      'Nombre de slots de photo de profil par joueur.'),
+  ('crit_chance_step',    0.0500, 'Chance de crit = step x rang de rarete (common=1 ... mythic=5).'),
+  ('crit_multiplier',     1.5000, 'Multiplicateur de degats d''un coup critique.'),
+  ('max_actions',         1000,   'Garde-fou anti-boucle du combat : nul + warning si atteint. Pas une regle de jeu.');
 
 -- =====================================================================
 -- REGLES DE GESTION NON EXPRIMABLES EN SQL
@@ -278,18 +301,21 @@ INSERT INTO game_settings (setting_key, setting_value, description) VALUES
 --     Desequiper : UPDATE item_instances SET pokemon_instance_id = NULL
 --     Aucun deplacement entre tables : aucun risque de dupliquer ou
 --     perdre un item. uq_ii_equip garantit 1 seul item par categorie.
+--     REGLE ITEMS (v3.1) : att/def/speed -> mode NULL toujours ;
+--     spe -> mode obligatoire. Verif service a l'insertion du catalogue.
 --
--- R6. COMBAT
---     Format : 6 vs 6, alignes de gauche a droite.
---     Initiative entre joueurs : somme des vitesses d'equipe.
---     Ordre d'action interne : slot_position 1 -> 6.
---       (la vitesse individuelle ne joue AUCUN role ici)
---     Ciblage : random parmi les taunt s'il y en a, sinon random
---       parmi tous les ennemis vivants.
---     Heal : le mode de l'item determine la cible. Montant = attaque
---       du pokemon convertie en PV.
---     Les roles viennent des ITEMS, pas de la position.
---     CALCUL EXCLUSIVEMENT SERVEUR. Jamais cote client.
+-- R6. COMBAT -> COMBAT_SPEC.md (spec complete et tranchee, 18/07).
+--     Resume : 6v6, initiative = somme des SPEED (egalite : coinflip),
+--     alternance stricte A1,B1,A2,B2 (curseurs sur les vivants),
+--     echange type Battlegrounds : riposte nue simultanee de la cible,
+--     ciblage random (taunt prioritaire), VIE = HP+DEF,
+--     ATTAQUE = ATT+SPE, pas de mitigation, mort immediate (marquee,
+--     jamais supprimee), adjacence calculee sur les vivants,
+--     heal = ATTAQUE convertie (cap maxVie, fallback attaque),
+--     crit/anticrit scales par rarete (crit_chance_step x rang),
+--     max_actions = garde-fou anti-boucle (nul + warning).
+--     CALCUL EXCLUSIVEMENT SERVEUR : resolveCombat(teamA, teamB) -> log.
+--     Le front ne fait que rejouer le log.
 --
 -- R7. CALCUL DES STATS (a la volee, jamais stocke)
 --
@@ -298,7 +324,7 @@ INSERT INTO game_settings (setting_key, setting_value, description) VALUES
 --            * (1 + level_stat_coeff * (level - 1))
 --            + SOMME(boosts des items equipes)
 --
---     Applique a atk, hp, def, speed.
+--     Applique a att, spe, hp, def, speed.       (v3.1 : + spe)
 --     Exemple : Dracaufeu base_atk 84
 --       - etoile 1, niveau 1  -> 84
 --       - etoile 3, niveau 20 -> 84 * 1.20 * 1.38 = 139
