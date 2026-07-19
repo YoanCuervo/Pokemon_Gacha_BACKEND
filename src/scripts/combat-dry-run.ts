@@ -54,6 +54,7 @@ function row(
 		item_category: item?.category ?? null,
 		item_mode: item?.mode ?? null,
 		item_rarity: item?.rarity ?? null,
+		item_required_type: null,
 		item_boost: item?.boost ?? null,
 	};
 }
