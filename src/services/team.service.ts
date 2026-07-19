@@ -13,6 +13,7 @@ import type {
 	TeamResponse,
 	TeamSlotRow,
 } from "../types";
+import { computeStat, type StatCoeffs } from "./stats";
 
 /**
  * SERVICE — les regles du jeu.
@@ -47,56 +48,55 @@ export class TeamError extends Error {
 const TEAM_SIZE = 6;
 
 /**
- * Regle R7 — le calcul des stats.
+ * Regle R7 — deleguee a services/stats.ts, LE canal unique de calcul
+ * (partage avec le moteur de combat : un seul endroit ou la formule et
+ * l'arrondi existent, sinon affichage et combat divergent en silence).
  *
- *   stat = base
- *          * (1 + star_stat_coeff  * (stars - 1))
- *          * (1 + level_stat_coeff * (level - 1))
- *          + SOMME(boosts des items)
- *
- * Jamais stockee en base : une stat calculee qu'on stocke, c'est une
- * stat qu'il faut recalculer a chaque equipement, chaque etoile, chaque
- * niveau, chaque evolution. Le jour ou on en oublie un, on a des stats
- * fausses, silencieusement.
- *
- * DETTE ASSUMEE : l'item "def" boost ici a la fois hp et def,
- * aveuglement. En vrai c'est le mode qui devrait decider (mode "hp"
- * -> boost les HP, mode "taunt" -> comportement, pas de stat).
- * A corriger quand on s'occupera des items.
+ * Mapping items depuis la refonte du 18/07 : chaque item booste SA
+ * stat (att -> atk, def -> def, speed -> speed). HP n'est booste par
+ * aucun item : la VIE de combat fusionne deja HP + DEF + SPD.
+ * (L'ancienne dette "def booste hp ET def" est resolue ici.)
  */
 function computeStats(
 	row: TeamSlotRow,
 	items: EquippedItem[],
-	starCoeff: number,
-	levelCoeff: number,
+	coeffs: StatCoeffs,
 ): ComputedStats {
-	const starMult = 1 + starCoeff * (row.stars - 1);
-	const levelMult = 1 + levelCoeff * (row.level - 1);
-
 	const boostFor = (category: string) =>
 		items
 			.filter((it) => it.category === category)
 			.reduce((sum, it) => sum + it.boost_value, 0);
 
-	const apply = (base: number, category: string) =>
-		Math.round(base * starMult * levelMult) + boostFor(category);
-
 	return {
-		atk: apply(row.base_atk, "att"),
-		hp: apply(row.base_hp, "def"),
-		def: apply(row.base_def, "def"),
-		speed: apply(row.base_speed, "speed"),
+		atk: computeStat(
+			row.base_atk,
+			row.stars,
+			row.level,
+			boostFor("att"),
+			coeffs,
+		),
+		hp: computeStat(row.base_hp, row.stars, row.level, 0, coeffs),
+		def: computeStat(
+			row.base_def,
+			row.stars,
+			row.level,
+			boostFor("def"),
+			coeffs,
+		),
+		speed: computeStat(
+			row.base_speed,
+			row.stars,
+			row.level,
+			boostFor("speed"),
+			coeffs,
+		),
 	};
 }
 
 /*Regroupe les lignes plates de la requete en objets par pokemon.
  * La requete renvoie jusqu'a 24 lignes (6 pokemon x 4 items). Chaque pokemon est duplique une fois par item. Ici on les recolle.
  * Le Map est cle par slot_position : c'est l'identifiant naturel d'un membre d'equipe, et il est unique par la contrainte uq_ts_slot.*/
-function groupRows(
-	rows: TeamSlotRow[],
-	starCoeff: number,
-	levelCoeff: number,
-): TeamMember[] {
+function groupRows(rows: TeamSlotRow[], coeffs: StatCoeffs): TeamMember[] {
 	const bySlot = new Map<number, TeamSlotRow[]>();
 
 	for (const row of rows) {
@@ -142,7 +142,7 @@ function groupRows(
 			level: first.level,
 			is_shiny: first.is_shiny,
 			items,
-			stats: computeStats(first, items, starCoeff, levelCoeff),
+			stats: computeStats(first, items, coeffs),
 		});
 	}
 
@@ -157,10 +157,12 @@ export async function getTeam(userId: number): Promise<TeamResponse> {
 		findTeamByUserId(userId),
 	]);
 
-	const starCoeff = settings.star_stat_coeff ?? 0.1;
-	const levelCoeff = settings.level_stat_coeff ?? 0.02;
+	const coeffs: StatCoeffs = {
+		star: settings.star_stat_coeff ?? 0.1,
+		level: settings.level_stat_coeff ?? 0.02,
+	};
 
-	const members = groupRows(rows, starCoeff, levelCoeff);
+	const members = groupRows(rows, coeffs);
 
 	// Regle R6 : la somme des vitesses decide de l'initiative entre les
 	// deux joueurs. C'est la seule stat d'equipe qui a un effet mecanique.
