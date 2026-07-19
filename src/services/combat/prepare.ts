@@ -62,7 +62,13 @@ export function prepareTeam(
 
 		const boostFor = (category: string) =>
 			slotRows
-				.filter((r) => r.item_category === category)
+				.filter(
+					(r) =>
+						r.item_category === category &&
+						(r.item_required_type == null ||
+							r.item_required_type === first.type_primary ||
+							r.item_required_type === first.type_secondary),
+				)
 				.reduce((sum, r) => sum + (r.item_boost ?? 0), 0);
 
 		// L'item spe : porteur du role (et de sa rarete pour crit/anticrit).

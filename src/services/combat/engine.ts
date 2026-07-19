@@ -37,6 +37,7 @@ const HEAL_ROLES = new Set([
 	"heal_random",
 	"heal_lowest",
 	"heal_adjacent",
+	"heal_all",
 ]);
 
 // ---------------------------------------------------------------------
@@ -344,6 +345,8 @@ function pickHealTargets(
 			if (pool.length === 0) return [];
 			return [pool.reduce((lowest, f) => (f.vie < lowest.vie ? f : lowest))];
 		}
+		case "heal_all":
+			return alive.filter(injured);
 		default:
 			return [];
 	}

@@ -64,7 +64,13 @@ function computeStats(
 ): ComputedStats {
 	const boostFor = (category: string) =>
 		items
-			.filter((it) => it.category === category)
+			.filter(
+				(it) =>
+					it.category === category &&
+					(it.required_type == null ||
+						it.required_type === row.type_primary ||
+						it.required_type === row.type_secondary),
+			)
 			.reduce((sum, it) => sum + it.boost_value, 0);
 
 	return {
@@ -127,6 +133,7 @@ function groupRows(rows: TeamSlotRow[], coeffs: StatCoeffs): TeamMember[] {
 				id: r.item_id as number,
 				name: r.item_name as string,
 				category: r.item_category as EquippedItem["category"],
+				required_type: r.item_required_type,
 				mode: r.item_mode,
 				boost_value: r.item_boost as number,
 			}));

@@ -30,6 +30,7 @@ export interface CombatTeamRow {
 	base_speed: number;
 	// Item equipe (NULL si le pokemon n'en a pas sur cette ligne)
 	item_category: "att" | "def" | "speed" | "spe" | null;
+	item_required_type: string | null;
 	item_mode: string | null; // renseigne uniquement pour category = 'spe'
 	item_rarity: "common" | "rare" | "ultra_rare" | "legendary" | "mythic" | null;
 	item_boost: number | null;
@@ -59,6 +60,7 @@ export async function findCombatTeamByUserId(
 			p.base_spd,
 			p.base_speed,
 			it.category    AS item_category,
+			it.required_type AS item_required_type,
 			it.mode        AS item_mode,
 			it.rarity      AS item_rarity,
 			it.boost_value AS item_boost

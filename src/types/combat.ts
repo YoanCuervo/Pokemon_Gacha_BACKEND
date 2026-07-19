@@ -26,6 +26,7 @@ export type CombatRole =
 	| "heal_random"
 	| "heal_lowest"
 	| "heal_adjacent"
+	| "heal_all"
 	| "atk_adjacent";
 
 // ---------------------------------------------------------------------

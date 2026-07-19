@@ -34,7 +34,6 @@ export interface ItemTemplate {
 export type ItemCategory = "att" | "def" | "speed" | "spe";
 
 export type ItemMode =
-	| "hp"
 	| "taunt"
 	| "crit"
 	| "anticrit"
@@ -42,7 +41,9 @@ export type ItemMode =
 	| "heal_right"
 	| "heal_random"
 	| "heal_lowest"
-	| "heal_adjacent";
+	| "heal_adjacent"
+	| "heal_all"
+	| "atk_adjacent";
 
 export type ItemRarity =
 	| "common"
@@ -99,6 +100,7 @@ export interface TeamSlotRow {
 	item_id: number | null;
 	item_name: string | null;
 	item_category: ItemCategory | null;
+	item_required_type: string | null;
 	item_mode: ItemMode | null;
 	item_boost: number | null;
 }
@@ -108,6 +110,7 @@ export interface EquippedItem {
 	id: number;
 	name: string;
 	category: ItemCategory;
+	required_type: string | null;
 	mode: ItemMode | null;
 	boost_value: number;
 }

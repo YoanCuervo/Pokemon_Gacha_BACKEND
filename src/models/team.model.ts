@@ -45,6 +45,7 @@ export async function findTeamByUserId(userId: number): Promise<TeamSlotRow[]> {
        ii.id            AS item_id,
        it.name          AS item_name,
        ii.category      AS item_category,
+			 it.required_type AS item_required_type,
        it.mode          AS item_mode,
        it.boost_value   AS item_boost
      FROM team_slots ts
