@@ -1,15 +1,18 @@
 // =====================================================================
 // services/combat/engine.ts — Le moteur de combat.
-// Fonction PURE : deux equipes preparees + settings (+ rng) -> CombatLog.
-// Aucun SQL, aucun HTTP. Reference : COMBAT_SPEC.md.
+// Fonction PURE : deux equipes preparees + settings + contexte
+// (+ rng) -> CombatLog. Aucun SQL, aucun HTTP.
+// Reference : COMBAT_SPEC.md.
 // =====================================================================
 
 import type {
+	ArenaId,
 	CombatEvent,
 	CombatLog,
 	HealApplied,
 	Hit,
 	TeamKey,
+	TeamProfile,
 } from "../../types/combat";
 import type { PreparedTeam } from "./prepare";
 import {
@@ -26,6 +29,14 @@ export interface CombatSettings {
 	crit_chance_step: number; // 0.05
 	crit_multiplier: number; // 1.5
 	max_actions: number; // 1000
+}
+
+/** Contexte du combat (contrat v2) : donnees d'habillage du setup,
+ *  fournies par le service (le moteur ne fait que les transporter).
+ *  arena = decor ; profiles = les deux joueurs, memes cles que teams. */
+export interface CombatContext {
+	arena: ArenaId;
+	profiles: { a: TeamProfile; b: TeamProfile };
 }
 
 /** Generateur aleatoire injectable : Math.random en prod, truque en test. */
@@ -48,6 +59,7 @@ export function resolveCombat(
 	teamA: PreparedTeam,
 	teamB: PreparedTeam,
 	settings: CombatSettings,
+	context: CombatContext,
 	rng: Rng = Math.random,
 ): CombatLog {
 	const state: CombatState = {
@@ -70,7 +82,7 @@ export function resolveCombat(
 		coinflip = true;
 	}
 
-	emitSetup(state, teamA, teamB, first);
+	emitSetup(state, teamA, teamB, context, first);
 	if (coinflip) {
 		push(state, { type: "coinflip", winner: first });
 	}
@@ -108,7 +120,7 @@ export function resolveCombat(
 
 	push(state, { type: "end", result, actions: state.actions });
 
-	return { version: 1, events: state.events };
+	return { version: 2, events: state.events };
 }
 
 // ---------------------------------------------------------------------
@@ -135,6 +147,7 @@ function emitSetup(
 	state: CombatState,
 	teamA: PreparedTeam,
 	teamB: PreparedTeam,
+	context: CombatContext,
 	first: TeamKey,
 ): void {
 	const memberOf = (f: Fighter) => ({
@@ -147,6 +160,8 @@ function emitSetup(
 		role: f.role,
 		attaque: f.attaque,
 		vie_max: f.vie_max,
+		stars: f.stars,
+		items: f.items,
 	});
 
 	push(state, {
@@ -163,6 +178,8 @@ function emitSetup(
 				members: teamB.fighters.map(memberOf),
 			},
 		},
+		arena: context.arena,
+		profiles: context.profiles,
 		first,
 	});
 }

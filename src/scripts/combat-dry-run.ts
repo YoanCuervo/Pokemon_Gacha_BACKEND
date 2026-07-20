@@ -8,7 +8,7 @@
 // =====================================================================
 
 import type { CombatTeamRow } from "../models/combat.model";
-import { resolveCombat } from "../services/combat/engine";
+import { type CombatContext, resolveCombat } from "../services/combat/engine";
 import { prepareTeam } from "../services/combat/prepare";
 import type { StatCoeffs } from "../services/stats";
 
@@ -20,6 +20,15 @@ const settings = {
 	max_actions: 1000,
 };
 
+// --- Contexte (contrat v2) : habillage du setup, valeurs de test -----
+const context: CombatContext = {
+	arena: "stadium",
+	profiles: {
+		a: { display_name: "Nerub", avatar_url: null },
+		b: { display_name: "Rival", avatar_url: null },
+	},
+};
+
 // --- Fabrique de lignes (les champs qui ne varient pas sont regroupes)
 let nextInstanceId = 1;
 function row(
@@ -29,6 +38,7 @@ function row(
 	stars = 1,
 	level = 1,
 	item?: {
+		name?: string;
 		category: "att" | "def" | "speed" | "spe";
 		mode?: string;
 		rarity?: CombatTeamRow["item_rarity"];
@@ -51,6 +61,7 @@ function row(
 		base_def,
 		base_spd,
 		base_speed,
+		item_name: item ? (item.name ?? "Test Item") : null,
 		item_category: item?.category ?? null,
 		item_mode: item?.mode ?? null,
 		item_rarity: item?.rarity ?? null,
@@ -74,12 +85,14 @@ const teamA = prepareTeam(
 	[
 		row(1, CHARIZARD, [84, 109, 78, 78, 85, 100], 5, 41), // le carry du seed
 		row(2, BLASTOISE, [83, 85, 79, 100, 105, 78], 4, 28, {
+			name: "Focus Sash",
 			category: "spe",
 			mode: "taunt",
 			rarity: "rare",
 			boost: 10,
 		}),
 		row(3, VENUSAUR, [82, 100, 80, 83, 100, 80], 3, 20, {
+			name: "Life Orb",
 			category: "spe",
 			mode: "heal_lowest",
 			rarity: "rare",
@@ -95,6 +108,7 @@ const teamB = prepareTeam(
 	2,
 	[
 		row(1, CHARMANDER, [52, 60, 39, 43, 50, 65], 3, 22, {
+			name: "Scope Lens",
 			category: "spe",
 			mode: "crit",
 			rarity: "mythic", // 25 % de crit : on veut le VOIR sortir
@@ -120,7 +134,7 @@ function mulberry32(seed: number) {
 	};
 }
 
-const log = resolveCombat(teamA, teamB, settings, mulberry32(42));
+const log = resolveCombat(teamA, teamB, settings, context, mulberry32(42));
 
 // --- Affichage --------------------------------------------------------
 console.log(JSON.stringify(log, null, 2));

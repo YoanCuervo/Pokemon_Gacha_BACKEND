@@ -12,6 +12,7 @@
 export type CombatUid = string;
 
 export type TeamKey = "a" | "b";
+export type ArenaId = "stadium"; // union à étendre avec les contextes (quêtes, PVP)
 
 /** Le rôle = le mode de l'item spe équipé, "attacker" si slot vide.
  *  Donnée technique en anglais ; le libellé français est un
@@ -33,6 +34,13 @@ export type CombatRole =
 // setup — événement 0, toujours. Tout ce qu'il faut pour dessiner le
 // terrain sans refaire R7.
 // ---------------------------------------------------------------------
+export type Rarity = "common" | "rare" | "ultra_rare" | "legendary" | "mythic";
+
+export interface SetupItem {
+	category: "att" | "def" | "speed" | "spe";
+	name: string; // nom EN du catalogue → dictionnaire FR côté front
+	rarity: Rarity;
+}
 
 export interface MemberSetup {
 	uid: CombatUid;
@@ -44,6 +52,13 @@ export interface MemberSetup {
 	role: CombatRole;
 	attaque: number; // ATT + SPE — statique tout le combat
 	vie_max: number; // HP + DEF + SPD — valeur de départ ET cap de soin
+	stars: number; // 1-5
+	items: SetupItem[]; // 0-4, ordonnés par catégorie att/def/speed/spe
+}
+
+export interface TeamProfile {
+	display_name: string;
+	avatar_url: string | null; // file_path relatif ("uploads/..."), null = avatar par defaut ; le front construit l'URL (photoUrl)
 }
 
 export interface TeamSetup {
@@ -56,6 +71,8 @@ export interface SetupEvent {
 	seq: 0;
 	type: "setup";
 	teams: { a: TeamSetup; b: TeamSetup };
+	arena: ArenaId;
+	profiles: { a: TeamProfile; b: TeamProfile };
 	first: TeamKey; // qui commence (seule source lue par le front)
 }
 
@@ -154,6 +171,6 @@ export type CombatEvent =
 	| EndEvent;
 
 export interface CombatLog {
-	version: 1; // incrémenter si le format change : les replays archivés restent lisibles
+	version: 2;
 	events: CombatEvent[];
 }

@@ -8,6 +8,7 @@ import type {
 	CombatEvent,
 	CombatRole,
 	CombatUid,
+	SetupItem,
 	TeamKey,
 } from "../../types/combat";
 
@@ -41,6 +42,8 @@ export interface Fighter {
 	is_shiny: boolean;
 	type_primary: string;
 	type_secondary: string | null;
+	stars: number;
+	items: SetupItem[];
 }
 
 // ---------------------------------------------------------------------

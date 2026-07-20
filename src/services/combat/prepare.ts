@@ -5,7 +5,7 @@
 // =====================================================================
 
 import type { CombatTeamRow } from "../../models/combat.model";
-import type { CombatRole, TeamKey } from "../../types/combat";
+import type { CombatRole, SetupItem, TeamKey } from "../../types/combat";
 import { computeStat, type StatCoeffs } from "../stats";
 import type { Fighter } from "./state";
 
@@ -16,6 +16,14 @@ const RARITY_RANK: Record<string, number> = {
 	ultra_rare: 3,
 	legendary: 4,
 	mythic: 5,
+};
+
+/** Ordre d'affichage des slots d'items dans le setup (contrat v2). */
+const CATEGORY_ORDER: Record<string, number> = {
+	att: 1,
+	def: 2,
+	speed: 3,
+	spe: 4,
 };
 
 /** Une equipe prete au combat : les fighters + l'initiative. */
@@ -79,6 +87,35 @@ export function prepareTeam(
 				? (RARITY_RANK[speRow.item_rarity] ?? null)
 				: null;
 
+		// Items equipes -> setup (contrat v2) : les lignes qui portent un
+		// item, projetees en SetupItem, triees att/def/speed/spe.
+		// Sur un LEFT JOIN, name/category/rarity sont NULL ensemble ou
+		// renseignes ensemble ; le type guard du filter retrecit les trois
+		// pour que le map soit type-sur sans `as`.
+		const items: SetupItem[] = slotRows
+			.filter(
+				(
+					r,
+				): r is CombatTeamRow & {
+					item_name: string;
+					item_category: NonNullable<CombatTeamRow["item_category"]>;
+					item_rarity: NonNullable<CombatTeamRow["item_rarity"]>;
+				} =>
+					r.item_name !== null &&
+					r.item_category !== null &&
+					r.item_rarity !== null,
+			)
+			.map((r) => ({
+				category: r.item_category,
+				name: r.item_name,
+				rarity: r.item_rarity,
+			}))
+			.sort(
+				(i1, i2) =>
+					(CATEGORY_ORDER[i1.category] ?? 0) -
+					(CATEGORY_ORDER[i2.category] ?? 0),
+			);
+
 		// R7 sur les six stats — un seul canal : computeStat.
 		const atk = computeStat(
 			first.base_atk,
@@ -134,6 +171,8 @@ export function prepareTeam(
 			is_shiny: first.is_shiny,
 			type_primary: first.type_primary,
 			type_secondary: first.type_secondary,
+			stars: first.stars,
+			items,
 		});
 	}
 

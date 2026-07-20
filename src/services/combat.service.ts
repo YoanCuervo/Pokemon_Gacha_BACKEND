@@ -1,7 +1,14 @@
-import { findCombatTeamByUserId } from "../models/combat.model";
+import {
+	findCombatProfileByUserId,
+	findCombatTeamByUserId,
+} from "../models/combat.model";
 import { findAllSettings } from "../models/settings.model";
-import type { CombatLog } from "../types/combat";
-import { type CombatSettings, resolveCombat } from "./combat/engine";
+import type { CombatLog, TeamProfile } from "../types/combat";
+import {
+	type CombatContext,
+	type CombatSettings,
+	resolveCombat,
+} from "./combat/engine";
 import { prepareTeam } from "./combat/prepare";
 import type { StatCoeffs } from "./stats";
 
@@ -24,10 +31,53 @@ export class CombatError extends Error {
 	}
 }
 
+const API_URL = "http://localhost:3001/api";
+
+export async function apiGet<T>(path: string): Promise<T> {
+	const response = await fetch(`${API_URL}${path}`);
+	if (!response.ok) {
+		throw new Error(`API ${response.status} on GET ${path}`);
+	}
+	return response.json() as Promise<T>;
+}
+
+export async function apiPost<T>(path: string, body: unknown): Promise<T> {
+	const response = await fetch(`${API_URL}${path}`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(body),
+	});
+	if (!response.ok) {
+		throw new Error(`API ${response.status} on POST ${path}`);
+	}
+	return response.json() as Promise<T>;
+}
+
+export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
+	const response = await fetch(`${API_URL}${path}`, {
+		method: "PATCH",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(body),
+	});
+	if (!response.ok) {
+		throw new Error(`API ${response.status} on PATCH ${path}`);
+	}
+	return response.json() as Promise<T>;
+}
+
+export async function apiDelete<T>(path: string): Promise<T> {
+	const response = await fetch(`${API_URL}${path}`, { method: "DELETE" });
+	if (!response.ok) {
+		throw new Error(`API ${response.status} on DELETE ${path}`);
+	}
+	return response.json() as Promise<T>;
+}
+
 export async function runMirrorCombat(userId: number): Promise<CombatLog> {
-	const [settings, rows] = await Promise.all([
+	const [settings, rows, profileRow] = await Promise.all([
 		findAllSettings(),
 		findCombatTeamByUserId(userId),
+		findCombatProfileByUserId(userId),
 	]);
 
 	if (rows.length === 0) {
@@ -44,11 +94,23 @@ export async function runMirrorCombat(userId: number): Promise<CombatLog> {
 		max_actions: settings.max_actions ?? 1000,
 	};
 
+	const profile: TeamProfile = {
+		display_name: profileRow?.display_name ?? "?",
+		avatar_url: profileRow?.avatar_path ?? null,
+	};
+
+	// Miroir : meme joueur des deux cotes, meme profil. Le PVE/PVP
+	// fournira un vrai profil adverse ici.
+	const context: CombatContext = {
+		arena: "stadium",
+		profiles: { a: profile, b: profile },
+	};
+
 	// Deux preparations INDEPENDANTES des memes lignes : uids "a*"/"b*"
 	// distincts, et surtout deux jeux de Fighter separes — le moteur
 	// MUTE la vie, partager les objets fausserait tout le combat.
 	const teamA = prepareTeam("a", userId, rows, coeffs);
 	const teamB = prepareTeam("b", userId, rows, coeffs);
 
-	return resolveCombat(teamA, teamB, combatSettings);
+	return resolveCombat(teamA, teamB, combatSettings, context);
 }
