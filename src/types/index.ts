@@ -1,8 +1,4 @@
-/*noms de champs correspondent EXACTEMENT aux colonnes MySQL. Si tu renommes une colonne, tu renommes ici. */
-
-// ---------------------------------------------------------------
-// CATALOGUES (donnees statiques)
-// ---------------------------------------------------------------
+/*noms de champs correspondent EXACTEMENT aux colonnes MySQL. Si on renomme une colonne, on renomme ici. */
 
 export interface Pokemon {
 	id: number;
@@ -115,7 +111,7 @@ export interface EquippedItem {
 	boost_value: number;
 }
 
-/** Un pokemon de l'equipe, assemble et pret a afficher. */
+/** Un pokemon de l'equipe, assemble et pret a etre afficher. */
 export interface TeamMember {
 	slot_position: number;
 	instance_id: number;
@@ -168,4 +164,54 @@ export interface BoxInstance {
 	level: number;
 	stars: number;
 	is_shiny: boolean;
+}
+
+// ---------------------------------------------------------------
+// FICHE POKEMON (inventaire) — GET /api/pokemon/:instanceId
+// Lecture pure de possession : identite + etat + 4 slots equipes.
+// Pas de stats calculées (R7 vit dans la fiche de combat mais jamais ici).
+// ---------------------------------------------------------------
+
+/** Ligne plate de la requete fiche : l'instance 'x' un item équipe (LEFT JOIN).
+ *  1 a 4 lignes (0 item -> 1 ligne avec les item_* a NULL). */
+export interface InstanceRow {
+	instance_id: number;
+	pokemon_id: number;
+	name: string;
+	type_primary: string;
+	type_secondary: string | null;
+	level: number;
+	stars: number;
+	is_shiny: boolean;
+	item_id: number | null;
+	item_name: string | null;
+	item_category: ItemCategory | null;
+	item_required_type: string | null;
+	item_mode: ItemMode | null;
+	item_boost: number | null;
+}
+
+/** Un slot d'equipement : sa categorie + l'item dedans (null si vide).
+ *  Le back garantit TOUJOURS les 4 slots dans l'ordre att/def/speed/spe. */
+export interface EquipSlot {
+	category: ItemCategory;
+	item: EquippedItem | null;
+}
+
+/** L'identite + l'etat d'une instance (sans items, sans stats). */
+export interface InstanceIdentity {
+	instance_id: number;
+	pokemon_id: number;
+	name: string;
+	type_primary: string;
+	type_secondary: string | null;
+	level: number;
+	stars: number;
+	is_shiny: boolean;
+}
+
+/** La reponse de GET /api/pokemon/:instanceId */
+export interface InstanceDetail {
+	instance: InstanceIdentity;
+	equipped: EquipSlot[]; // toujours 4, ordre att/def/speed/spe
 }

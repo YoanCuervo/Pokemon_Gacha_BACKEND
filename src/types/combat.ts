@@ -39,6 +39,7 @@ export type Rarity = "common" | "rare" | "ultra_rare" | "legendary" | "mythic";
 export interface SetupItem {
 	category: "att" | "def" | "speed" | "spe";
 	name: string; // nom EN du catalogue → dictionnaire FR côté front
+	boost: number; // boost_value de l'item (l'effet chiffré, hover front)
 	rarity: Rarity;
 }
 

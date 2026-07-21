@@ -5,6 +5,7 @@ import { testConnection } from "./config/db";
 import boxRouter from "./routes/box.routes";
 import combatRoutes from "./routes/combat.routes";
 import photoRouter from "./routes/photo.routes";
+import pokemonRouter from "./routes/pokemon.routes";
 import teamRoutes from "./routes/team.routes";
 import userRouter from "./routes/user.routes";
 
@@ -56,6 +57,7 @@ app.use("/api/box", boxRouter);
 app.use("/api/photos", photoRouter);
 app.use("/api/me", userRouter);
 app.use("/api/combat", combatRoutes);
+app.use("/api/pokemon", pokemonRouter);
 
 // 404 sur tout le reste. Doit etre APRES les routes.
 app.use((_req, res) => {

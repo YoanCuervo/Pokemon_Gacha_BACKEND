@@ -100,15 +100,18 @@ export function prepareTeam(
 					item_name: string;
 					item_category: NonNullable<CombatTeamRow["item_category"]>;
 					item_rarity: NonNullable<CombatTeamRow["item_rarity"]>;
+					item_boost: number;
 				} =>
 					r.item_name !== null &&
 					r.item_category !== null &&
-					r.item_rarity !== null,
+					r.item_rarity !== null &&
+					r.item_boost !== null,
 			)
 			.map((r) => ({
 				category: r.item_category,
 				name: r.item_name,
 				rarity: r.item_rarity,
+				boost: r.item_boost,
 			}))
 			.sort(
 				(i1, i2) =>
