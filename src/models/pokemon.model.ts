@@ -1,4 +1,8 @@
-import type { RowDataPacket } from "mysql2/promise";
+import type {
+	PoolConnection,
+	ResultSetHeader,
+	RowDataPacket,
+} from "mysql2/promise";
 import { pool } from "../config/db";
 import type { InstanceRow } from "../types";
 
@@ -45,4 +49,68 @@ export async function findInstanceById(
 		[instanceId, userId],
 	);
 	return rows;
+}
+
+/** L'instance existe-t-elle et appartient-elle au user ?
+ *  Renvoie true/false, sans charger la fiche. */
+export async function instanceBelongsToUserTx(
+	conn: PoolConnection,
+	instanceId: number,
+	userId: number,
+): Promise<boolean> {
+	const [rows] = await conn.query<RowDataPacket[]>(
+		`SELECT 1 FROM pokemon_instances WHERE id = ? AND user_id = ? LIMIT 1`,
+		[instanceId, userId],
+	);
+	return rows.length > 0;
+}
+
+/** Un item en RESERVE (non equipe) du user + sa categorie.
+ *  null si l'item n'existe pas, n'est pas au user, ou est deja equipe.
+ *  On lit la categorie de l'INSTANCE (denormalisee) : c'est le slot cible. */
+export async function findReserveItemForEquip(
+	conn: PoolConnection,
+	itemInstanceId: number,
+	userId: number,
+): Promise<{ category: string } | null> {
+	const [rows] = await conn.query<RowDataPacket[]>(
+		`SELECT category
+		FROM item_instances
+		WHERE id = ? AND user_id = ? AND pokemon_instance_id IS NULL
+		LIMIT 1`,
+		[itemInstanceId, userId],
+	);
+	const first = rows[0];
+	return first ? { category: first.category as string } : null;
+}
+
+/** Vide le slot (category) d'un pokemon : renvoie l'item occupant en
+ *  reserve. No-op si le slot est deja vide. Retourne le nb de lignes
+ *  touchees (0 ou 1). */
+export async function clearSlot(
+	conn: PoolConnection,
+	instanceId: number,
+	category: string,
+): Promise<number> {
+	const [res] = await conn.query<ResultSetHeader>(
+		`UPDATE item_instances
+		SET pokemon_instance_id = NULL
+		WHERE pokemon_instance_id = ? AND category = ?`,
+		[instanceId, category],
+	);
+	return res.affectedRows;
+}
+
+/** Equipe un item sur une instance (le slot est deja libre a ce stade). */
+export async function attachItem(
+	conn: PoolConnection,
+	itemInstanceId: number,
+	instanceId: number,
+): Promise<void> {
+	await conn.query(
+		`UPDATE item_instances
+		SET pokemon_instance_id = ?
+		WHERE id = ?`,
+		[instanceId, itemInstanceId],
+	);
 }

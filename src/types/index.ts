@@ -244,3 +244,14 @@ export interface ReserveItem {
 export interface ReserveResponse {
 	items: ReserveItem[];
 }
+
+// ---------------------------------------------------------------
+// EQUIPEMENT (inventaire) — PATCH /api/pokemon/:instanceId/equip
+// ---------------------------------------------------------------
+
+/** PATCH /api/pokemon/:instanceId/equip
+ *  Le slot cible n'est PAS envoye : il est deduit de la categorie de
+ *  l'item cote serveur (le front ne decide pas ou va l'item). */
+export interface EquipPayload {
+	item_instance_id: number;
+}
