@@ -4,6 +4,7 @@ import express from "express";
 import { testConnection } from "./config/db";
 import boxRouter from "./routes/box.routes";
 import combatRoutes from "./routes/combat.routes";
+import itemRouter from "./routes/item.routes";
 import photoRouter from "./routes/photo.routes";
 import pokemonRouter from "./routes/pokemon.routes";
 import teamRoutes from "./routes/team.routes";
@@ -58,6 +59,7 @@ app.use("/api/photos", photoRouter);
 app.use("/api/me", userRouter);
 app.use("/api/combat", combatRoutes);
 app.use("/api/pokemon", pokemonRouter);
+app.use("/api/items", itemRouter);
 
 // 404 sur tout le reste. Doit etre APRES les routes.
 app.use((_req, res) => {

@@ -215,3 +215,32 @@ export interface InstanceDetail {
 	instance: InstanceIdentity;
 	equipped: EquipSlot[]; // toujours 4, ordre att/def/speed/spe
 }
+
+// ---------------------------------------------------------------
+// RESERVE D'ITEMS (inventaire) — GET /api/items/reserve
+// Les items possedes NON equipes (pokemon_instance_id IS NULL).
+// Alimente la grille de droite du wireframe equipement ; le front
+// filtre en memoire (categorie via le slot, + type + rarete).
+// ---------------------------------------------------------------
+
+/** Un item en reserve, tel que renvoye au front.
+ *  id       = item_instances.id (l'instance qu'on equipera)
+ *  category = source de verite pour le filtre "slot" cote front
+ *  rarity   = pour le FILTER by rarity
+ *  required_type = pour le FILTER by type (et le grisage si non-match) */
+export interface ReserveItem {
+	id: number;
+	template_id: number;
+	name: string;
+	category: ItemCategory;
+	required_type: string | null;
+	mode: ItemMode | null;
+	rarity: ItemRarity;
+	boost_value: number;
+	item_level: number;
+}
+
+/** La reponse de GET /api/items/reserve */
+export interface ReserveResponse {
+	items: ReserveItem[];
+}
