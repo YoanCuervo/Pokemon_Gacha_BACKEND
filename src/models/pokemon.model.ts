@@ -40,7 +40,8 @@ export async function findInstanceById(
 			it.category      AS item_category,
 			it.required_type AS item_required_type,
 			it.mode          AS item_mode,
-			it.boost_value   AS item_boost
+			it.boost_value   AS item_boost,
+			it.rarity        AS item_rarity
 		FROM pokemon_instances pi
 		JOIN pokemon p ON p.id = pi.pokemon_id
 		LEFT JOIN item_instances ii ON ii.pokemon_instance_id = pi.id

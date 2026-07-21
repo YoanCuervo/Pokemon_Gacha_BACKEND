@@ -46,6 +46,7 @@ function buildDetail(rows: InstanceRow[]): InstanceDetail {
 				required_type: row.item_required_type,
 				mode: row.item_mode,
 				boost_value: row.item_boost ?? 0,
+				rarity: row.item_rarity ?? "common",
 			});
 		}
 	}

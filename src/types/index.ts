@@ -109,6 +109,7 @@ export interface EquippedItem {
 	required_type: string | null;
 	mode: ItemMode | null;
 	boost_value: number;
+	rarity: ItemRarity;
 }
 
 /** Un pokemon de l'equipe, assemble et pret a etre afficher. */
@@ -189,6 +190,7 @@ export interface InstanceRow {
 	item_required_type: string | null;
 	item_mode: ItemMode | null;
 	item_boost: number | null;
+	item_rarity: ItemRarity | null;
 }
 
 /** Un slot d'equipement : sa categorie + l'item dedans (null si vide).
