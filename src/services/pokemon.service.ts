@@ -28,8 +28,7 @@ const SLOT_ORDER: ItemCategory[] = ["att", "def", "speed", "spe"];
  * Assemble les lignes plates en une fiche (PUR, sans SQL, testable a sec).
  * - Une instance sans item -> 1 ligne avec les item_* a NULL.
  * - rows vide (instance introuvable / pas au joueur) -> NOT_FOUND.
- * Les 4 slots sont TOUJOURS presents (vides remplis a null), pour que
- * le front mappe chaque case sans deviner.
+ * Les 4 slots sont TOUJOURS presents (vides remplis a null), pour que le front mappe chaque case sans deviner.
  */
 function buildDetail(rows: InstanceRow[]): InstanceDetail {
 	const first = rows[0];
@@ -85,15 +84,9 @@ export async function getInstanceDetail(
 
 /**
  * R5 — Equiper un item sur une instance (remplacement atomique).
- *
  * Le slot cible est la CATEGORIE de l'item (deduit serveur, pas du body).
- * Si le slot est deja occupe, l'occupant retourne en reserve, puis le
- * nouvel item prend sa place — le tout en UNE transaction (sinon on
- * pourrait vider le slot sans le remplir, ou violer uq_ii_equip).
- *
- * Aucune verif de type (required_type) : un item incompatible est
- * equipable, son boost sera juste ignore au combat (decision actee).
- *
+ * Si le slot est deja occupe, l'occupant retourne en reserve, puis le nouvel item prend sa place — le tout en UNE transaction (sinon on pourrait vider le slot sans le remplir, ou violer uq_ii_equip).
+ * Aucune verif de type (required_type) : un item incompatible est equipable, son boost sera juste ignore au combat (decision actee).
  * Renvoie la fiche a jour (lue APRES commit, hors transaction).
  */
 export async function equipItem(
@@ -126,6 +119,32 @@ export async function equipItem(
 	}
 
 	// 5. Relecture APRES commit : etat final des 4 slots.
+	const rows = await findInstanceById(instanceId, userId);
+	return buildDetail(rows);
+}
+
+/**
+ * R5 — Desequiper un slot (categorie) d'une instance.
+ * Un seul UPDATE (via clearSlot) : pas besoin de transaction. Idempotent : si le slot est deja vide, affectedRows = 0, on ne le traite pas comme une erreur (le monde est deja dans l'etat voulu).
+ * Renvoie la fiche a jour.
+ */
+export async function unequipItem(
+	instanceId: number,
+	category: ItemCategory,
+	userId: number,
+): Promise<InstanceDetail> {
+	const conn = await pool.getConnection();
+	try {
+		// Propriete : l'instance est-elle au joueur ?
+		const owns = await instanceBelongsToUserTx(conn, instanceId, userId);
+		if (!owns) throw new InventoryError("NOT_FOUND");
+
+		// Vide le slot (no-op si deja vide, on ignore affectedRows).
+		await clearSlot(conn, instanceId, category);
+	} finally {
+		conn.release();
+	}
+
 	const rows = await findInstanceById(instanceId, userId);
 	return buildDetail(rows);
 }

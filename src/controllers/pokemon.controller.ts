@@ -3,7 +3,9 @@ import {
 	equipItem,
 	getInstanceDetail,
 	InventoryError,
+	unequipItem,
 } from "../services/pokemon.service";
+import type { ItemCategory } from "../types";
 
 export async function equipHandler(req: Request, res: Response): Promise<void> {
 	const instanceId = Number(req.params.instanceId);
@@ -62,6 +64,49 @@ export async function getInstanceHandler(
 			return;
 		}
 		console.error("GET /api/pokemon/:instanceId failed:", err);
+		res.status(500).json({ error: "INTERNAL" });
+	}
+}
+
+const VALID_CATEGORIES: readonly ItemCategory[] = [
+	"att",
+	"def",
+	"speed",
+	"spe",
+];
+
+export async function unequipHandler(
+	req: Request,
+	res: Response,
+): Promise<void> {
+	const instanceId = Number(req.params.instanceId);
+	const category = req.body?.category as unknown;
+
+	if (!Number.isInteger(instanceId) || instanceId <= 0) {
+		res.status(400).json({ error: "VALIDATION" });
+		return;
+	}
+	if (
+		typeof category !== "string" ||
+		!VALID_CATEGORIES.includes(category as ItemCategory)
+	) {
+		res.status(400).json({ error: "VALIDATION" });
+		return;
+	}
+
+	try {
+		const detail = await unequipItem(
+			instanceId,
+			category as ItemCategory,
+			getUserId(),
+		);
+		res.status(200).json(detail);
+	} catch (err) {
+		if (err instanceof InventoryError && err.code === "NOT_FOUND") {
+			res.status(404).json({ error: "NOT_FOUND" });
+			return;
+		}
+		console.error("PATCH /api/pokemon/:instanceId/unequip failed:", err);
 		res.status(500).json({ error: "INTERNAL" });
 	}
 }

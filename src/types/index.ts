@@ -219,8 +219,7 @@ export interface InstanceDetail {
 // ---------------------------------------------------------------
 // RESERVE D'ITEMS (inventaire) — GET /api/items/reserve
 // Les items possedes NON equipes (pokemon_instance_id IS NULL).
-// Alimente la grille de droite du wireframe equipement ; le front
-// filtre en memoire (categorie via le slot, + type + rarete).
+// Alimente la grille de droite du wireframe equipement ; le front filtre en memoire (categorie via le slot, + type + rarete).
 // ---------------------------------------------------------------
 
 /** Un item en reserve, tel que renvoye au front.
@@ -250,8 +249,13 @@ export interface ReserveResponse {
 // ---------------------------------------------------------------
 
 /** PATCH /api/pokemon/:instanceId/equip
- *  Le slot cible n'est PAS envoye : il est deduit de la categorie de
- *  l'item cote serveur (le front ne decide pas ou va l'item). */
+ *  Le slot cible n'est PAS envoye : il est deduit de la categorie de l'item cote serveur (le front ne decide pas ou va l'item). */
 export interface EquipPayload {
 	item_instance_id: number;
+}
+
+/** PATCH /api/pokemon/:instanceId/unequip
+ *  On desequipe un SLOT (categorie), pas un item precis : le geste UI agit sur le slot selectionne. Idempotent : slot deja vide -> no-op. */
+export interface UnequipPayload {
+	category: ItemCategory;
 }
