@@ -209,8 +209,6 @@ export async function consumeFragments(
 	);
 }
 
-/** Credite le pot de fragments d'une ligne evolutive (upsert).
- *  Syntaxe alias de ligne (AS new), MySQL 8.0.20+. */
 export async function addFragments(
 	conn: PoolConnection,
 	userId: number,
@@ -220,13 +218,11 @@ export async function addFragments(
 	await conn.query(
 		`INSERT INTO user_fragments (user_id, evolution_line_id, quantity)
 		VALUES (?, ?, ?) AS new
-		ON DUPLICATE KEY UPDATE quantity = quantity + new.quantity`,
+		ON DUPLICATE KEY UPDATE quantity = user_fragments.quantity + new.quantity`,
 		[userId, evolutionLineId, amount],
 	);
 }
 
-/** Credite le pot de bonbons du joueur (upsert).
- *  Un seul type aujourd'hui ('xp'). */
 export async function addCandies(
 	conn: PoolConnection,
 	userId: number,
@@ -235,7 +231,7 @@ export async function addCandies(
 	await conn.query(
 		`INSERT INTO user_candies (user_id, candy_type, quantity)
 		VALUES (?, 'xp', ?) AS new
-		ON DUPLICATE KEY UPDATE quantity = quantity + new.quantity`,
+		ON DUPLICATE KEY UPDATE quantity = user_candies.quantity + new.quantity`,
 		[userId, amount],
 	);
 }
