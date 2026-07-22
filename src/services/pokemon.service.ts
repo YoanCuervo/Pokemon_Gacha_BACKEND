@@ -226,14 +226,10 @@ function resolveEvolution(row: EvolutionRow): {
 		// Evolution shiny : Shiny Stone, cout = base * multiplicateur.
 		// La Shiny Stone doit exister (seed 005). Si elle manque
 		// (shiny_stone_id null), on ne peut pas evoluer -> can_evolve false.
-		const cost =
-			row.base_cost !== null ? row.base_cost * multiplier : null;
+		const cost = row.base_cost !== null ? row.base_cost * multiplier : null;
 		const owned = row.shiny_owned;
 		const canEvolve =
-			row.shiny_stone_id !== null &&
-			cost !== null &&
-			cost > 0 &&
-			owned >= cost;
+			row.shiny_stone_id !== null && cost !== null && cost > 0 && owned >= cost;
 		return {
 			isShiny: true,
 			hasTarget: true,
@@ -256,10 +252,7 @@ function resolveEvolution(row: EvolutionRow): {
 	const cost = row.base_cost;
 	const owned = row.normal_owned;
 	const canEvolve =
-		row.normal_stone_id !== null &&
-		cost !== null &&
-		cost > 0 &&
-		owned >= cost;
+		row.normal_stone_id !== null && cost !== null && cost > 0 && owned >= cost;
 	return {
 		isShiny: false,
 		hasTarget: true,
@@ -344,21 +337,13 @@ export async function evolveInstance(
 
 		// 5. Pierres insuffisantes (couvre aussi Shiny Stone manquante /
 		//    cout invalide : stoneIdToConsume ou stoneCost null).
-		if (
-			!r.canEvolve ||
-			r.stoneIdToConsume === null ||
-			r.stoneCost === null
-		) {
+		if (!r.canEvolve || r.stoneIdToConsume === null || r.stoneCost === null) {
 			throw new InventoryError("NOT_ENOUGH_STONES");
 		}
 
 		// 6. Consommer la BONNE pierre, puis muter l'espece.
 		await consumeStones(conn, userId, r.stoneIdToConsume, r.stoneCost);
-		await setInstanceSpecies(
-			conn,
-			instanceId,
-			row.target_pokemon_id as number,
-		);
+		await setInstanceSpecies(conn, instanceId, row.target_pokemon_id as number);
 
 		await conn.commit();
 	} catch (err) {

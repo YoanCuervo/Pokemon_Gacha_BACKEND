@@ -11,10 +11,10 @@ export interface Pokemon {
 	type_primary: string;
 	type_secondary: string | null;
 	base_atk: number;
-	base_spe: number;      // Sp.Atk API -> composante ATTAQUE
+	base_spe: number; // Sp.Atk API -> composante ATTAQUE
 	base_hp: number;
 	base_def: number;
-	base_spd: number;      // Sp.Def API -> composante VIE
+	base_spd: number; // Sp.Def API -> composante VIE
 	base_speed: number;
 	generation: number;
 }
@@ -89,10 +89,10 @@ export interface TeamSlotRow {
 	type_primary: string;
 	type_secondary: string | null;
 	base_atk: number;
-	base_spe: number;        // ← ajouter
+	base_spe: number; // ← ajouter
 	base_hp: number;
 	base_def: number;
-	base_spd: number;        // ← ajouter
+	base_spd: number; // ← ajouter
 	base_speed: number;
 	stars: number;
 	level: number;
@@ -103,7 +103,7 @@ export interface TeamSlotRow {
 	item_required_type: string | null;
 	item_mode: ItemMode | null;
 	item_boost: number | null;
-	item_rarity: ItemRarity | null;   // ← ajouter
+	item_rarity: ItemRarity | null; // ← ajouter
 }
 
 /** Un item equipe, tel que renvoye au front. */
@@ -135,14 +135,14 @@ export interface TeamMember {
 
 export interface ComputedStats {
 	atk: number;
-	spe: number;     // Sp.Atk (composante ATTAQUE)
+	spe: number; // Sp.Atk (composante ATTAQUE)
 	hp: number;
 	def: number;
-	spd: number;     // Sp.Def (composante VIE)
+	spd: number; // Sp.Def (composante VIE)
 	speed: number;
 	// Stats de combat (COMBAT_SPEC 3.3) : ce que le joueur subit vraiment.
 	attaque: number; // atk + spe
-	vie: number;     // hp + def + spd
+	vie: number; // hp + def + spd
 }
 
 /** La reponse de GET /api/team */
@@ -322,4 +322,55 @@ export interface UserStone {
 /** La reponse de GET /api/stones */
 export interface StonesResponse {
 	stones: UserStone[];
+}
+
+// ---------------------------------------------------------------
+// PUISSANCE (inventaire, onglet B) — GET /api/pokemon/:instanceId/power
+// Etoiles et decraft. Le pot de fragments est par LIGNE EVOLUTIVE :
+// un doublon = toute instance de la meme evolution_line_id.
+// ---------------------------------------------------------------
+
+/** Une instance sacrifiable, avec ce qu'elle rapporterait.
+ *  Le front affiche ce rendement AVANT la validation : le joueur voit
+ *  ce qu'il gagne avant de detruire. */
+export interface DecraftableInstance {
+	instance_id: number;
+	pokemon_id: number;
+	name: string;
+	stars: number;
+	level: number;
+	is_shiny: boolean;
+	/** Fragments rendus = moitie du cout de son etoile (0* -> 1). */
+	fragment_value: number;
+	/** Bonbons rendus = 25% de son XP totale, converti. */
+	candy_value: number;
+}
+
+/** La reponse de GET /api/pokemon/:instanceId/power.
+ *  - next_star_cost : cout du prochain palier ; NULL si deja 5 etoiles.
+ *  - can_upgrade : assez de fragments ET pas au maximum.
+ *  - decraftable : les doublons sacrifiables (hors equipe, hors cible). */
+export interface PowerState {
+	instance_id: number;
+	stars: number;
+	fragments_owned: number;
+	next_star_cost: number | null;
+	can_upgrade: boolean;
+	decraftable: DecraftableInstance[];
+}
+
+/** La reponse de POST /api/pokemon/:instanceId/decraft.
+ *  Renvoie ce qui a ete gagne (pour l'afficher au joueur) + l'etat a
+ *  jour (pot credite, liste des sacrifiables amputee). */
+export interface DecraftResult {
+	sacrificed_count: number;
+	fragments_gained: number;
+	candies_gained: number;
+	state: PowerState;
+}
+
+/** POST /api/pokemon/:instanceId/decraft
+ *  Les instances a sacrifier. La cible est dans l'URL, pas dans le body. */
+export interface DecraftPayload {
+	instance_ids: number[];
 }

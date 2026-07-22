@@ -20,9 +20,7 @@ interface UserStoneRowPacket extends RowDataPacket, UserStone {}
 /** Toutes les pierres du joueur, avec leur quantite.
  *  Triees par type pour un ordre stable a l'affichage (le front
  *  remontera la pierre requise en premier). */
-export async function findStonesByUserId(
-	userId: number,
-): Promise<UserStone[]> {
+export async function findStonesByUserId(userId: number): Promise<UserStone[]> {
 	const [rows] = await pool.query<UserStoneRowPacket[]>(
 		`SELECT
 			s.id           AS stone_id,

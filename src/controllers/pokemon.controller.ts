@@ -14,7 +14,12 @@ function getUserId(): number {
 	return Number(process.env.DEV_USER_ID ?? 1);
 }
 
-const VALID_CATEGORIES: readonly ItemCategory[] = ["att", "def", "speed", "spe"];
+const VALID_CATEGORIES: readonly ItemCategory[] = [
+	"att",
+	"def",
+	"speed",
+	"spe",
+];
 
 export async function getInstanceHandler(
 	req: Request,
