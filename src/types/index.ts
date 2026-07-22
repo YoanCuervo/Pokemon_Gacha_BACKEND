@@ -11,8 +11,10 @@ export interface Pokemon {
 	type_primary: string;
 	type_secondary: string | null;
 	base_atk: number;
+	base_spe: number;      // Sp.Atk API -> composante ATTAQUE
 	base_hp: number;
 	base_def: number;
+	base_spd: number;      // Sp.Def API -> composante VIE
 	base_speed: number;
 	generation: number;
 }
@@ -87,8 +89,10 @@ export interface TeamSlotRow {
 	type_primary: string;
 	type_secondary: string | null;
 	base_atk: number;
+	base_spe: number;        // ← ajouter
 	base_hp: number;
 	base_def: number;
+	base_spd: number;        // ← ajouter
 	base_speed: number;
 	stars: number;
 	level: number;
@@ -99,6 +103,7 @@ export interface TeamSlotRow {
 	item_required_type: string | null;
 	item_mode: ItemMode | null;
 	item_boost: number | null;
+	item_rarity: ItemRarity | null;   // ← ajouter
 }
 
 /** Un item equipe, tel que renvoye au front. */
@@ -130,9 +135,14 @@ export interface TeamMember {
 
 export interface ComputedStats {
 	atk: number;
+	spe: number;     // Sp.Atk (composante ATTAQUE)
 	hp: number;
 	def: number;
+	spd: number;     // Sp.Def (composante VIE)
 	speed: number;
+	// Stats de combat (COMBAT_SPEC 3.3) : ce que le joueur subit vraiment.
+	attaque: number; // atk + spe
+	vie: number;     // hp + def + spd
 }
 
 /** La reponse de GET /api/team */
@@ -260,4 +270,36 @@ export interface EquipPayload {
  *  On desequipe un SLOT (categorie), pas un item precis : le geste UI agit sur le slot selectionne. Idempotent : slot deja vide -> no-op. */
 export interface UnequipPayload {
 	category: ItemCategory;
+}
+
+// ---------------------------------------------------------------
+// EVOLUTION (inventaire, onglet A) — GET /api/pokemon/:instanceId/evolution
+// Info pour l'onglet Evolution. Le service a DEJA tranche normal/shiny :
+// le champ `stone` contient la pierre REQUISE (pierre du type si normal,
+// Shiny Stone si shiny) et `stone_cost` le cout EFFECTIF (cout de base,
+// ou cout de base x multiplicateur pour un shiny). Le front est agnostique
+// du calcul : il affiche "stone.name  stones_owned / stone_cost".
+// A COLLER dans types/index.ts (section FICHE POKEMON ou juste apres).
+// ---------------------------------------------------------------
+
+/** La reponse de GET /api/pokemon/:instanceId/evolution.
+ *  - can_evolve : false si stade final OU pierres insuffisantes.
+ *  - target : l'espece d'arrivee (null si stade final).
+ *  - stone : la pierre REQUISE, deja choisie par le service selon is_shiny
+ *            (null si stade final — pas d'evolution possible).
+ *  - stone_cost : cout EFFECTIF (base, ou base x multiplicateur si shiny).
+ *  - stones_owned : quantite possedee de la pierre requise.
+ *  - is_shiny_evolution : true si c'est une evolution shiny (Shiny Stone,
+ *            cout x10). Permet au front un rendu dedie (pierre doree,
+ *            libelle "Evolution Shiny"...). Le front peut l'ignorer et
+ *            juste afficher stone/cost/owned. */
+export interface EvolutionInfo {
+	instance_id: number;
+	current: { pokemon_id: number; name: string };
+	target: { pokemon_id: number; name: string } | null;
+	stone: { id: number; name: string; type: string } | null;
+	stone_cost: number | null;
+	stones_owned: number;
+	is_shiny_evolution: boolean;
+	can_evolve: boolean;
 }

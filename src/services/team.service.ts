@@ -9,6 +9,7 @@ import {
 import type {
 	ComputedStats,
 	EquippedItem,
+	ItemRarity,
 	TeamMember,
 	TeamResponse,
 	TeamSlotRow,
@@ -52,10 +53,18 @@ const TEAM_SIZE = 6;
  * (partage avec le moteur de combat : un seul endroit ou la formule et
  * l'arrondi existent, sinon affichage et combat divergent en silence).
  *
- * Mapping items depuis la refonte du 18/07 : chaque item booste SA
- * stat (att -> atk, def -> def, speed -> speed). HP n'est booste par
- * aucun item : la VIE de combat fusionne deja HP + DEF + SPD.
- * (L'ancienne dette "def booste hp ET def" est resolue ici.)
+ * Mapping items (refonte 18/07, ALIGNE sur combat/prepare.ts) :
+ *   att -> atk, def -> def, speed -> speed, spe -> spe.
+ *   hp et spd ne sont boostes par aucun item.
+ *
+ * Fusion COMBAT_SPEC 3.3, dans le MEME ordre que prepare.ts :
+ *   R7 sur chaque stat, PUIS somme.
+ *   ATTAQUE = atk + spe   /   VIE = hp + def + spd
+ * Sommer les bases AVANT R7 donnerait un arrondi different et ferait
+ * diverger l'affichage du combat. L'ordre compte.
+ *
+ * Les 6 stats brutes restent exposees (le front Team les affiche deja) ;
+ * attaque/vie sont les deux chiffres que le joueur subit reellement.
  */
 function computeStats(
 	row: TeamSlotRow,
@@ -73,29 +82,46 @@ function computeStats(
 			)
 			.reduce((sum, it) => sum + it.boost_value, 0);
 
+	const atk = computeStat(
+		row.base_atk,
+		row.stars,
+		row.level,
+		boostFor("att"),
+		coeffs,
+	);
+	const spe = computeStat(
+		row.base_spe,
+		row.stars,
+		row.level,
+		boostFor("spe"),
+		coeffs,
+	);
+	const hp = computeStat(row.base_hp, row.stars, row.level, 0, coeffs);
+	const def = computeStat(
+		row.base_def,
+		row.stars,
+		row.level,
+		boostFor("def"),
+		coeffs,
+	);
+	const spd = computeStat(row.base_spd, row.stars, row.level, 0, coeffs);
+	const speed = computeStat(
+		row.base_speed,
+		row.stars,
+		row.level,
+		boostFor("speed"),
+		coeffs,
+	);
+
 	return {
-		atk: computeStat(
-			row.base_atk,
-			row.stars,
-			row.level,
-			boostFor("att"),
-			coeffs,
-		),
-		hp: computeStat(row.base_hp, row.stars, row.level, 0, coeffs),
-		def: computeStat(
-			row.base_def,
-			row.stars,
-			row.level,
-			boostFor("def"),
-			coeffs,
-		),
-		speed: computeStat(
-			row.base_speed,
-			row.stars,
-			row.level,
-			boostFor("speed"),
-			coeffs,
-		),
+		atk,
+		spe,
+		hp,
+		def,
+		spd,
+		speed,
+		attaque: atk + spe,
+		vie: hp + def + spd,
 	};
 }
 
@@ -136,6 +162,7 @@ function groupRows(rows: TeamSlotRow[], coeffs: StatCoeffs): TeamMember[] {
 				required_type: r.item_required_type,
 				mode: r.item_mode,
 				boost_value: r.item_boost as number,
+				rarity: r.item_rarity as ItemRarity,
 			}));
 
 		members.push({

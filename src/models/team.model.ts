@@ -39,15 +39,18 @@ export async function findTeamByUserId(userId: number): Promise<TeamSlotRow[]> {
        p.type_primary,
        p.type_secondary,
        p.base_atk,
+       p.base_spe,
        p.base_hp,
        p.base_def,
+       p.base_spd,
        p.base_speed,
        ii.id            AS item_id,
        it.name          AS item_name,
        ii.category      AS item_category,
-			 it.required_type AS item_required_type,
+       it.required_type AS item_required_type,
        it.mode          AS item_mode,
-       it.boost_value   AS item_boost
+       it.boost_value   AS item_boost,
+       it.rarity        AS item_rarity
      FROM team_slots ts
        JOIN pokemon_instances pi ON pi.id = ts.pokemon_instance_id
        JOIN pokemon p            ON p.id  = pi.pokemon_id
