@@ -303,3 +303,23 @@ export interface EvolutionInfo {
 	is_shiny_evolution: boolean;
 	can_evolve: boolean;
 }
+
+// ---------------------------------------------------------------
+// PIERRES (domaine stones) — GET /api/stones
+// Les pierres possedees par le joueur. Pas liees a une instance :
+// alimente l'onglet Evolution et, plus tard, le Sac a dos.
+// ---------------------------------------------------------------
+
+/** Une pierre possedee, telle que renvoyee au front.
+ *  quantity peut valoir 0 (pierre deja possedee, pot vide). */
+export interface UserStone {
+	stone_id: number;
+	name: string;
+	type: string; // pokemon_type ('fire', 'water'... ou 'shiny')
+	quantity: number;
+}
+
+/** La reponse de GET /api/stones */
+export interface StonesResponse {
+	stones: UserStone[];
+}

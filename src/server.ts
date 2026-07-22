@@ -7,6 +7,7 @@ import combatRoutes from "./routes/combat.routes";
 import itemRouter from "./routes/item.routes";
 import photoRouter from "./routes/photo.routes";
 import pokemonRouter from "./routes/pokemon.routes";
+import stonesRouter from "./routes/stones.routes";
 import teamRoutes from "./routes/team.routes";
 import userRouter from "./routes/user.routes";
 
@@ -60,6 +61,7 @@ app.use("/api/me", userRouter);
 app.use("/api/combat", combatRoutes);
 app.use("/api/pokemon", pokemonRouter);
 app.use("/api/items", itemRouter);
+app.use("/api/stones", stonesRouter);
 
 // 404 sur tout le reste. Doit etre APRES les routes.
 app.use((_req, res) => {
