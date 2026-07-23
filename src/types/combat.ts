@@ -175,3 +175,35 @@ export interface CombatLog {
 	version: 2;
 	events: CombatEvent[];
 }
+// ---------------------------------------------------------------------
+// BAC A SABLE (theorycrafting) — POST /api/combat/sandbox
+// Le joueur compose LES DEUX equipes librement : n'importe quelle
+// espece, n'importe quel niveau/etoiles, n'importe quel item du
+// catalogue. Rien n'est lu ni ecrit dans pokemon_instances : ces
+// equipes sont ephemeres, elles n'existent que le temps du combat.
+// ---------------------------------------------------------------------
+
+/** Un pokemon compose a la main. Les stats de base viennent du
+ *  catalogue (pokemon_id) ; le reste est choisi par le joueur.
+ *  item_template_ids : 0 a 4 ids de item_templates, UN PAR CATEGORIE
+ *  au maximum (le back refuse les doublons de categorie — le moteur
+ *  sommerait les boosts, ce qui n'existe pas en jeu reel). */
+export interface SandboxMember {
+	pokemon_id: number;
+	level: number;
+	stars: number;
+	is_shiny: boolean;
+	item_template_ids: number[];
+}
+
+/** Une equipe composee : 1 a 6 membres, dans l'ordre des slots.
+ *  name : libelle libre du theorycrafting ("Compo agressive"). */
+export interface SandboxTeam {
+	name: string;
+	members: SandboxMember[];
+}
+
+/** Le payload de POST /api/combat/sandbox. */
+export interface SandboxPayload {
+	teams: { a: SandboxTeam; b: SandboxTeam };
+}
