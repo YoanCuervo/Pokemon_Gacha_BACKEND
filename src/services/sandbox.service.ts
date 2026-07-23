@@ -5,12 +5,13 @@ import {
 	type ItemTemplateRow,
 	type SpeciesRow,
 } from "../models/sandbox.model";
-import { findAllSettings } from "../models/settings.model";
+import { findAllSettings, type GameSettings } from "../models/settings.model";
 import type {
 	CombatLog,
 	SandboxPayload,
+	SandboxPreview,
 	SandboxTeam,
-	TeamKey,
+	SandboxTeamPreview,
 	TeamProfile,
 } from "../types/combat";
 import {
@@ -18,7 +19,7 @@ import {
 	type CombatSettings,
 	resolveCombat,
 } from "./combat/engine";
-import { prepareTeam } from "./combat/prepare";
+import { type PreparedTeam, prepareTeam } from "./combat/prepare";
 import type { StatCoeffs } from "./stats";
 
 /**
@@ -67,6 +68,9 @@ const MAX_STARS = 5;
 /** Un pokemon ne porte qu'un item par categorie (4 slots). */
 const MAX_ITEMS = 4;
 
+/** Sentinelle : aucune equipe du bac a sable n'appartient a un joueur. */
+const SANDBOX_USER_ID = 0;
+
 /**
  * Valide une equipe et rassemble les ids a resoudre.
  * PUR : aucune I/O, on ne fait que verifier la FORME et les BORNES.
@@ -75,10 +79,7 @@ const MAX_ITEMS = 4;
 function collectIds(
 	team: SandboxTeam,
 	label: string,
-): {
-	pokemonIds: number[];
-	templateIds: number[];
-} {
+): { pokemonIds: number[]; templateIds: number[] } {
 	if (team.members.length === 0) {
 		throw new SandboxError(`L'equipe ${label} est vide`, "EMPTY_TEAM");
 	}
@@ -219,35 +220,84 @@ function buildRows(
 }
 
 /**
- * Resout un combat de bac a sable.
- * Aucune ecriture, aucun userId : les deux equipes sont anonymes.
+ * Prepare les deux equipes : validation, resolution des catalogues,
+ * assemblage, R7 + fusion. Partage par le combat ET la preview — ce
+ * qui GARANTIT que la preview montre exactement ce qui combattra.
+ * Une divergence entre les deux viderait l'outil de son interet.
  */
-export async function runSandboxCombat(
-	payload: SandboxPayload,
-): Promise<CombatLog> {
+async function prepareBothTeams(payload: SandboxPayload): Promise<{
+	teamA: PreparedTeam;
+	teamB: PreparedTeam;
+	settings: GameSettings;
+}> {
 	// 1. Valider la forme et rassembler tous les ids a resoudre.
 	const a = collectIds(payload.teams.a, "A");
 	const b = collectIds(payload.teams.b, "B");
 
+	// Dedoublonnage : 12 Dracaufeu ne font qu'un seul id a resoudre.
 	const allPokemonIds = [...new Set([...a.pokemonIds, ...b.pokemonIds])];
 	const allTemplateIds = [...new Set([...a.templateIds, ...b.templateIds])];
 
-	// 2. Resoudre les catalogues (une requete chacun, pas une par membre).
+	// 2. Resoudre les catalogues (deux requetes au total, quelle que
+	//    soit la taille des compos).
 	const [settings, species, templates] = await Promise.all([
 		findAllSettings(),
 		findSpeciesByIds(allPokemonIds),
 		findItemTemplatesByIds(allTemplateIds),
 	]);
 
-	// 3. Assembler les lignes plates (valide les ids au passage).
+	// 3. Assembler les lignes plates (valide l'existence des ids au passage).
 	const rowsA = buildRows(payload.teams.a, species, templates, "A");
 	const rowsB = buildRows(payload.teams.b, species, templates, "B");
 
-	// 4. Meme chaine que le combat reel a partir d'ici.
+	// 4. R7 + fusion, via la MEME fonction que le combat reel.
 	const coeffs: StatCoeffs = {
 		star: Number(settings.star_stat_coeff ?? 0.1),
 		level: Number(settings.level_stat_coeff ?? 0.02),
 	};
+
+	return {
+		teamA: prepareTeam("a", SANDBOX_USER_ID, rowsA, coeffs),
+		teamB: prepareTeam("b", SANDBOX_USER_ID, rowsB, coeffs),
+		settings,
+	};
+}
+
+/**
+ * Stats d'une compo SANS lancer le combat (preview temps reel).
+ * Meme chaine que le combat, arretee juste avant resolveCombat : ce que
+ * le joueur voit ici est EXACTEMENT ce qui entrera en combat.
+ */
+export async function previewSandboxTeams(
+	payload: SandboxPayload,
+): Promise<SandboxPreview> {
+	const { teamA, teamB } = await prepareBothTeams(payload);
+
+	const project = (team: PreparedTeam): SandboxTeamPreview => ({
+		total_speed: team.total_speed,
+		total_attaque: team.fighters.reduce((sum, f) => sum + f.attaque, 0),
+		total_vie: team.fighters.reduce((sum, f) => sum + f.vie_max, 0),
+		members: team.fighters.map((f) => ({
+			slot_position: f.slot_position,
+			pokemon_id: f.pokemon_id,
+			role: f.role,
+			attaque: f.attaque,
+			vie_max: f.vie_max,
+		})),
+	});
+
+	return { teams: { a: project(teamA), b: project(teamB) } };
+}
+
+/**
+ * Resout un combat de bac a sable.
+ * Aucune ecriture, aucun userId : les deux equipes sont anonymes.
+ */
+export async function runSandboxCombat(
+	payload: SandboxPayload,
+): Promise<CombatLog> {
+	const { teamA, teamB, settings } = await prepareBothTeams(payload);
+
 	const combatSettings: CombatSettings = {
 		crit_chance_step: Number(settings.crit_chance_step ?? 0.05),
 		crit_multiplier: Number(settings.crit_multiplier ?? 1.5),
@@ -268,11 +318,6 @@ export async function runSandboxCombat(
 			b: profileOf(payload.teams.b, "Équipe B"),
 		},
 	};
-
-	// user_id = 0 : sentinelle, aucune equipe n'appartient a un joueur.
-	const SANDBOX_USER_ID = 0;
-	const teamA = prepareTeam("a" as TeamKey, SANDBOX_USER_ID, rowsA, coeffs);
-	const teamB = prepareTeam("b" as TeamKey, SANDBOX_USER_ID, rowsB, coeffs);
 
 	return resolveCombat(teamA, teamB, combatSettings, context);
 }

@@ -196,6 +196,17 @@ export interface SandboxMember {
 	item_template_ids: number[];
 }
 
+/** Les stats calculees d'un membre, telles que le moteur les utilisera.
+ *  Sert la preview du bac a sable : ce que le joueur voit ici est
+ *  EXACTEMENT ce qui entrera en combat (meme chaine R7 + fusion). */
+export interface SandboxMemberPreview {
+	slot_position: number;
+	pokemon_id: number;
+	role: CombatRole;
+	attaque: number; // ATT + SPE
+	vie_max: number; // HP + DEF + SPD
+}
+
 /** Une equipe composee : 1 a 6 membres, dans l'ordre des slots.
  *  name : libelle libre du theorycrafting ("Compo agressive"). */
 export interface SandboxTeam {
@@ -203,7 +214,21 @@ export interface SandboxTeam {
 	members: SandboxMember[];
 }
 
+/** Les stats d'une equipe composee. */
+export interface SandboxTeamPreview {
+	total_speed: number; // initiative (COMBAT_SPEC 4.1)
+	total_attaque: number;
+	total_vie: number;
+	members: SandboxMemberPreview[];
+}
+
 /** Le payload de POST /api/combat/sandbox. */
 export interface SandboxPayload {
 	teams: { a: SandboxTeam; b: SandboxTeam };
+}
+
+/** La reponse de POST /api/sandbox/preview.
+ *  Les deux equipes, pour comparer d'un coup d'oeil. */
+export interface SandboxPreview {
+	teams: { a: SandboxTeamPreview; b: SandboxTeamPreview };
 }

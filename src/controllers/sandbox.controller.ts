@@ -1,6 +1,10 @@
 import type { Request, Response } from "express";
 import { findAllItemTemplates, findAllSpecies } from "../models/sandbox.model";
-import { runSandboxCombat, SandboxError } from "../services/sandbox.service";
+import {
+	previewSandboxTeams,
+	runSandboxCombat,
+	SandboxError,
+} from "../services/sandbox.service";
 import type {
 	SandboxMember,
 	SandboxPayload,
@@ -9,10 +13,17 @@ import type {
 
 /**
  * CONTROLLER — HTTP seul.
- * Le payload vient du client : donnee hostile. On valide ici la FORME
- * (structure, types), le service valide les REGLES (bornes, doublons de
- * categorie) et le model valide l'EXISTENCE (ids inconnus).
+ *
+ * Le payload vient du client : donnee hostile. Trois couches de
+ * validation, chacune a sa place :
+ *   - ICI      : la FORME (structure, types, champs presents)
+ *   - service  : les REGLES (bornes, doublons de categorie, taille)
+ *   - model    : l'EXISTENCE (un id absent du catalogue est invalide)
  */
+
+// ---------------------------------------------------------------------
+// Catalogues (alimentent les selecteurs du front)
+// ---------------------------------------------------------------------
 
 /** Le catalogue des especes (251) pour le selecteur du front. */
 export async function getSpeciesCatalogHandler(
@@ -42,6 +53,10 @@ export async function getItemCatalogHandler(
 	}
 }
 
+// ---------------------------------------------------------------------
+// Validation de forme (partagee par combat et preview)
+// ---------------------------------------------------------------------
+
 /** Vrai si la valeur est un entier strictement positif. */
 function isPositiveInt(value: unknown): value is number {
 	return Number.isInteger(value) && (value as number) > 0;
@@ -49,9 +64,9 @@ function isPositiveInt(value: unknown): value is number {
 
 /**
  * Valide la FORME d'un membre et le normalise.
- * Renvoie null si la structure est invalide — le handler repond 400.
- * On ne verifie PAS les bornes ici (c'est une regle de jeu, elle vit
- * dans le service) : juste que les champs existent et ont le bon type.
+ * Renvoie null si la structure est invalide -> le handler repond 400.
+ * On ne verifie PAS les bornes ici (regle de jeu, elle vit dans le
+ * service) : juste que les champs existent et ont le bon type.
  */
 function parseMember(raw: unknown): SandboxMember | null {
 	if (typeof raw !== "object" || raw === null) return null;
@@ -96,38 +111,72 @@ function parseTeam(raw: unknown): SandboxTeam | null {
 	};
 }
 
-export async function postSandboxCombatHandler(
-	req: Request,
-	res: Response,
-): Promise<void> {
-	const rawTeams = (req.body as Record<string, unknown> | undefined)?.teams;
-	if (typeof rawTeams !== "object" || rawTeams === null) {
-		res.status(400).json({ error: "VALIDATION" });
-		return;
-	}
+/** Valide la FORME du payload complet. null si invalide.
+ *  Partage par les deux POST : meme contrat d'entree. */
+function parsePayload(body: unknown): SandboxPayload | null {
+	const rawTeams = (body as Record<string, unknown> | undefined)?.teams;
+	if (typeof rawTeams !== "object" || rawTeams === null) return null;
 
 	const teams = rawTeams as Record<string, unknown>;
 	const a = parseTeam(teams.a);
 	const b = parseTeam(teams.b);
+	if (!a || !b) return null;
 
-	if (!a || !b) {
+	return { teams: { a, b } };
+}
+
+/** Mapping commun des erreurs metier -> HTTP.
+ *  Toutes les SandboxError sont des compos invalides : le client a
+ *  envoye quelque chose d'incoherent -> 400, jamais 409. */
+function sendSandboxError(res: Response, err: unknown, route: string): void {
+	if (err instanceof SandboxError) {
+		res.status(400).json({ error: err.code, message: err.message });
+		return;
+	}
+	console.error(`${route} failed:`, err);
+	res.status(500).json({ error: "INTERNAL" });
+}
+
+// ---------------------------------------------------------------------
+// Actions
+// ---------------------------------------------------------------------
+
+/** Stats des deux compos, SANS lancer le combat (preview temps reel). */
+export async function postSandboxPreviewHandler(
+	req: Request,
+	res: Response,
+): Promise<void> {
+	const payload = parsePayload(req.body);
+	if (!payload) {
 		res.status(400).json({ error: "VALIDATION" });
 		return;
 	}
 
-	const payload: SandboxPayload = { teams: { a, b } };
+	try {
+		const preview = await previewSandboxTeams(payload);
+		res.status(200).json(preview);
+	} catch (err) {
+		sendSandboxError(res, err, "POST /api/sandbox/preview");
+	}
+}
+
+/** Resout le combat et renvoie le log complet.
+ *  POST et non GET : la resolution tire du random, ce n'est pas une
+ *  lecture cachable (meme raison que /api/combat). */
+export async function postSandboxCombatHandler(
+	req: Request,
+	res: Response,
+): Promise<void> {
+	const payload = parsePayload(req.body);
+	if (!payload) {
+		res.status(400).json({ error: "VALIDATION" });
+		return;
+	}
 
 	try {
 		const log = await runSandboxCombat(payload);
 		res.status(200).json(log);
 	} catch (err) {
-		if (err instanceof SandboxError) {
-			// Toutes les erreurs metier du bac a sable sont des compos
-			// invalides : le client a envoye quelque chose d'incoherent.
-			res.status(400).json({ error: err.code, message: err.message });
-			return;
-		}
-		console.error("POST /api/sandbox/combat failed:", err);
-		res.status(500).json({ error: "INTERNAL" });
+		sendSandboxError(res, err, "POST /api/sandbox/combat");
 	}
 }
