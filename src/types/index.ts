@@ -374,3 +374,26 @@ export interface DecraftResult {
 export interface DecraftPayload {
 	instance_ids: number[];
 }
+/** La reponse de GET /api/pokemon/:instanceId/experience.
+ *  - xp : cumul total (ce que le back stocke).
+ *  - xp_into_level / xp_for_next_level : la progression DANS le palier
+ *    courant, ce que la barre affiche. Au niveau max, les deux valent 0.
+ *  - candy_xp_value : XP par bonbon, pour que le front puisse afficher
+ *    l'effet d'un stepper sans rappeler le back a chaque increment. */
+export interface XpState {
+	instance_id: number;
+	level: number;
+	max_level: number;
+	xp: number;
+	xp_into_level: number;
+	xp_for_next_level: number;
+	candies_owned: number;
+	candy_xp_value: number;
+	is_max_level: boolean;
+}
+
+/** POST /api/pokemon/:instanceId/experience
+ *  Le nombre de bonbons a consommer. */
+export interface UseCandiesPayload {
+	amount: number;
+}
