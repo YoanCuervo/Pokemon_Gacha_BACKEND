@@ -117,6 +117,10 @@ const DECRAFTABLE_GUARDS = `
 			JOIN pokemon p2 ON p2.id = pi2.pokemon_id
 			WHERE pi2.id = ? AND pi2.user_id = ?
 		)
+		AND pi.is_shiny = (
+			SELECT pi3.is_shiny FROM pokemon_instances pi3
+			WHERE pi3.id = ? AND pi3.user_id = ?
+		)
 		AND pi.id NOT IN (
 			SELECT ts.pokemon_instance_id FROM team_slots ts WHERE ts.user_id = ?
 		)`;
@@ -134,7 +138,7 @@ export async function findDecraftable(
 		${DECRAFTABLE_JOINS}
 		WHERE ${DECRAFTABLE_GUARDS}
 		ORDER BY pi.stars, pi.level`,
-		[userId, instanceId, instanceId, userId, userId],
+		[userId, instanceId, instanceId, userId, instanceId, userId, userId],
 	);
 	return rows;
 }
@@ -167,6 +171,8 @@ export async function lockDecraftablesForUpdate(
 			...instanceIds,
 			userId,
 			targetInstanceId,
+			targetInstanceId,
+			userId,
 			targetInstanceId,
 			userId,
 			userId,
