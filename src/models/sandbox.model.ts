@@ -60,7 +60,9 @@ export async function findSpeciesByIds(
 
 /** Un template d'item, tel que le combat l'attend.
  *  La rarete, le boost et le mode viennent du TEMPLATE : le client ne
- *  choisit qu'un id, il ne peut pas mentir sur la puissance d'un item. */
+ *  choisit qu'un id, il ne peut pas mentir sur la puissance d'un item.
+ *  is_unique : un item marque unique ne peut equiper qu'UN pokemon de
+ *  la lineup entiere, meme si le joueur en possede plusieurs. */
 export interface ItemTemplateRow extends RowDataPacket {
 	template_id: number;
 	name: string;
@@ -69,6 +71,7 @@ export interface ItemTemplateRow extends RowDataPacket {
 	mode: string | null;
 	rarity: "common" | "rare" | "ultra_rare" | "legendary" | "mythic";
 	boost_value: number;
+	is_unique: number | boolean; // TINYINT ou boolean selon le driver
 }
 
 /** Les templates demandes, indexes par id.
@@ -88,7 +91,8 @@ export async function findItemTemplatesByIds(
 			it.required_type,
 			it.mode,
 			it.rarity,
-			it.boost_value
+			it.boost_value,
+			it.is_unique
 		FROM item_templates it
 		WHERE it.id IN (${placeholders})`,
 		templateIds,
@@ -132,7 +136,8 @@ export async function findAllItemTemplates(): Promise<ItemTemplateRow[]> {
 			it.required_type,
 			it.mode,
 			it.rarity,
-			it.boost_value
+			it.boost_value,
+			it.is_unique
 		FROM item_templates it
 		ORDER BY it.category, it.rarity, it.name`,
 	);

@@ -33,8 +33,12 @@ import type { StatCoeffs } from "./stats";
  * toucher.
  *
  * Les contraintes du jeu reel sont RESPECTEES (6 max, 1 item par
- * categorie, bornes de niveau/etoiles) : le bac a sable sert a preparer
- * des compos jouables, pas a tester l'impossible.
+ * categorie, items uniques, bornes de niveau/etoiles) : le bac a sable
+ * sert a preparer des compos JOUABLES, pas a tester l'impossible.
+ *
+ * Une nuance entre les deux usages : le COMBAT exige deux equipes
+ * garnies, la PREVIEW non — le joueur compose une equipe puis l'autre,
+ * il doit voir ses stats des le premier pokemon place.
  */
 
 export class SandboxError extends Error {
@@ -46,6 +50,7 @@ export class SandboxError extends Error {
 			| "UNKNOWN_SPECIES"
 			| "UNKNOWN_ITEM"
 			| "DUPLICATE_CATEGORY"
+			| "DUPLICATE_UNIQUE_ITEM"
 			| "INVALID_LEVEL"
 			| "INVALID_STARS"
 			| "TOO_MANY_ITEMS",
@@ -75,12 +80,16 @@ const SANDBOX_USER_ID = 0;
  * Valide une equipe et rassemble les ids a resoudre.
  * PUR : aucune I/O, on ne fait que verifier la FORME et les BORNES.
  * Les ids sont valides plus tard, contre les catalogues.
+ *
+ * allowEmpty : la preview accepte une equipe vide (on compose l'une
+ * puis l'autre), le combat non (on ne se bat pas contre le vide).
  */
 function collectIds(
 	team: SandboxTeam,
 	label: string,
+	allowEmpty: boolean,
 ): { pokemonIds: number[]; templateIds: number[] } {
-	if (team.members.length === 0) {
+	if (team.members.length === 0 && !allowEmpty) {
 		throw new SandboxError(`L'equipe ${label} est vide`, "EMPTY_TEAM");
 	}
 	if (team.members.length > TEAM_SIZE) {
@@ -140,6 +149,15 @@ function buildRows(
 ): CombatTeamRow[] {
 	const rows: CombatTeamRow[] = [];
 
+	// Les items UNIQUES deja places dans CETTE equipe. Un item unique ne
+	// peut equiper qu'un seul pokemon de la lineup, meme si le joueur en
+	// possede plusieurs exemplaires : c'est une regle de COMPOSITION,
+	// distincte de uq_ii_equip (qui ne fait qu'empecher qu'une meme
+	// INSTANCE soit portee deux fois — trivialement vrai).
+	// L'unicite porte sur le TEMPLATE : deux raretes du meme objet sont
+	// deux items differents et peuvent cohabiter.
+	const usedUnique = new Set<number>();
+
 	team.members.forEach((member, index) => {
 		const sp = species.get(member.pokemon_id);
 		if (!sp) {
@@ -196,6 +214,7 @@ function buildRows(
 					"UNKNOWN_ITEM",
 				);
 			}
+
 			if (seen.has(tpl.category)) {
 				throw new SandboxError(
 					`Deux items ${tpl.category} sur le meme pokemon (equipe ${label})`,
@@ -203,6 +222,18 @@ function buildRows(
 				);
 			}
 			seen.add(tpl.category);
+
+			// Item unique deja pris ailleurs dans l'equipe ?
+			// is_unique arrive en 0/1 ou true/false selon le driver.
+			if (tpl.is_unique) {
+				if (usedUnique.has(tpl.template_id)) {
+					throw new SandboxError(
+						`${tpl.name} est unique : un seul par equipe (equipe ${label})`,
+						"DUPLICATE_UNIQUE_ITEM",
+					);
+				}
+				usedUnique.add(tpl.template_id);
+			}
 
 			rows.push({
 				...base,
@@ -224,15 +255,22 @@ function buildRows(
  * assemblage, R7 + fusion. Partage par le combat ET la preview — ce
  * qui GARANTIT que la preview montre exactement ce qui combattra.
  * Une divergence entre les deux viderait l'outil de son interet.
+ *
+ * allowEmpty : voir collectIds. Une equipe vide produit une
+ * PreparedTeam sans combattant (total_speed 0) — le moteur ne la
+ * verra jamais, seule la preview la projette.
  */
-async function prepareBothTeams(payload: SandboxPayload): Promise<{
+async function prepareBothTeams(
+	payload: SandboxPayload,
+	allowEmpty: boolean,
+): Promise<{
 	teamA: PreparedTeam;
 	teamB: PreparedTeam;
 	settings: GameSettings;
 }> {
 	// 1. Valider la forme et rassembler tous les ids a resoudre.
-	const a = collectIds(payload.teams.a, "A");
-	const b = collectIds(payload.teams.b, "B");
+	const a = collectIds(payload.teams.a, "A", allowEmpty);
+	const b = collectIds(payload.teams.b, "B", allowEmpty);
 
 	// Dedoublonnage : 12 Dracaufeu ne font qu'un seul id a resoudre.
 	const allPokemonIds = [...new Set([...a.pokemonIds, ...b.pokemonIds])];
@@ -267,22 +305,33 @@ async function prepareBothTeams(payload: SandboxPayload): Promise<{
  * Stats d'une compo SANS lancer le combat (preview temps reel).
  * Meme chaine que le combat, arretee juste avant resolveCombat : ce que
  * le joueur voit ici est EXACTEMENT ce qui entrera en combat.
+ * Tolere une equipe vide : on compose l'une puis l'autre.
+ *
+ * On projette des MemberSetup COMPLETS (meme forme que emitSetup du
+ * moteur) : le front peut ainsi dessiner la carte de combat telle
+ * quelle, sans reconstituer les items ni les types depuis son draft.
  */
 export async function previewSandboxTeams(
 	payload: SandboxPayload,
 ): Promise<SandboxPreview> {
-	const { teamA, teamB } = await prepareBothTeams(payload);
+	const { teamA, teamB } = await prepareBothTeams(payload, true);
 
 	const project = (team: PreparedTeam): SandboxTeamPreview => ({
 		total_speed: team.total_speed,
 		total_attaque: team.fighters.reduce((sum, f) => sum + f.attaque, 0),
 		total_vie: team.fighters.reduce((sum, f) => sum + f.vie_max, 0),
 		members: team.fighters.map((f) => ({
+			uid: f.uid,
 			slot_position: f.slot_position,
 			pokemon_id: f.pokemon_id,
+			is_shiny: f.is_shiny,
+			type_primary: f.type_primary,
+			type_secondary: f.type_secondary,
 			role: f.role,
 			attaque: f.attaque,
 			vie_max: f.vie_max,
+			stars: f.stars,
+			items: f.items,
 		})),
 	});
 
@@ -292,11 +341,12 @@ export async function previewSandboxTeams(
 /**
  * Resout un combat de bac a sable.
  * Aucune ecriture, aucun userId : les deux equipes sont anonymes.
+ * Les DEUX equipes doivent etre garnies : on ne se bat pas contre le vide.
  */
 export async function runSandboxCombat(
 	payload: SandboxPayload,
 ): Promise<CombatLog> {
-	const { teamA, teamB, settings } = await prepareBothTeams(payload);
+	const { teamA, teamB, settings } = await prepareBothTeams(payload, false);
 
 	const combatSettings: CombatSettings = {
 		crit_chance_step: Number(settings.crit_chance_step ?? 0.05),
